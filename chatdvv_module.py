@@ -22,10 +22,6 @@ import openai
 from groq import Groq
 import ollama
 
-import torch
-from transformers import AutoTokenizer, AutoModel
-
-
 # Init MongoDB Client
 load_dotenv()
 mongoClient = MongoClient(os.environ.get('MONGO_URI_DVV'))
@@ -35,13 +31,6 @@ collection_artikel_pool = database.dvv_artikel_nahv
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
-
-# Load pre-trained model and tokenizer
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-model_name = "sentence-transformers/all-MiniLM-L6-v2"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
-
 
 # Define Database functions ----------------------------------
 
@@ -56,11 +45,11 @@ def generate_abstracts(input_field: str, output_field: str, max_iterations: int 
         iteration += 1
 
         start_time = datetime.now()
-        abstract = write_summary(record[input_field])
+        abstract = write_summary(str(record[input_field]))
         end_time = datetime.now()
         duration = end_time - start_time
 
-        print(title[:50])
+        print(record['titel'][:50])
         print(f"#{iteration} Duration: {round(duration.total_seconds(), 2)}")
         print("-"*50)
 
@@ -71,57 +60,68 @@ def generate_abstracts(input_field: str, output_field: str, max_iterations: int 
 
 def write_summary(text: str) -> str:
 
-    if content == "":
+    if text == "":
         return "empty"
 
-    systemPrompt = ["""
+    systemPrompt = """
                     Du bist ein Redakteur im Bereich Transport und Verkehr.
                     Du bis Experte dafür, Zusammenfassungen von Fachartikeln zu schreiben.
                     Die maximale Länge der Zusammenfassungen sind 500 Wörter.
-                    """]
-    results = []
-    history = []
-    question = f"Erstelle eine Zusammenfassung des folgenden Textes: {text}. \
-        Die Antwort darf nur aus dem eigentlichen Text der Zusammenfassung bestehen."
-    summary = ask_llm("ollama_llama3", 0.1, question, history, systemPrompt, results)
-
-    return summary
+                    Wichtig ist nicht die Lesbarkeit, sondern die Kürze und Prägnanz der Zusammenfassung:
+                    Was sind die wichtigsten Aussagen und Informationen des Textes?
+                    """
+    task = """
+            Erstelle eine Zusammenfassung des Originaltextes in deutscher Sprache.
+            Verwende keine Zeilenumrüche oder Absätze.
+            Die Antwort darf nur aus dem eigentlichen Text der Zusammenfassung bestehen.
+            """
+   
+    prompt = [
+            {"role": "system", "content": systemPrompt},
+            {"role": "assistant", "content": f'Originaltext: {text}'},
+            {"role": "user", "content": task}
+            ]
+    
+    response = openaiClient.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.1,
+            messages = prompt
+            )
+    
+    return response.choices[0].message.content
 
 
 def generate_embeddings(input_field: str, output_field: str, 
                         max_iterations: int = 10) -> None:
 
-    query = {input_field: {}, input_field: {"$ne": ""}}
+    query = {output_field: {}}
     cursor = collection_artikel_pool.find(query)
     count = collection_artikel_pool.count_documents(query)
-    print(f"Count: {count}")
+    print(f"Records without embeddings: {count}")
 
     iteration = 0
 
     for record in cursor:
 
         iteration += 1
-        if (max_iterations > 0) and (iteration > max_iterations):
+        if iteration > max_iterations:
             break
 
-        summary_text = record.get(input_field)
-        if summary_text is None:
-            summary_text = "Keine Zusammenfassung vorhanden."
+        article_text = record[input_field]
+        if article_text == "":
+            article_text = "Fehler: Kein Text vorhanden."
+        else:
+            embeddings = create_embeddings(article_text)
+            collection_artikel_pool.update_one({"_id": record['_id']}, {"$set": {output_field: embeddings}})
 
-        embeddings = create_embeddings([summary_text])
-        collection_artikel_pool.update_one({"_id": record.get('_id')}, {"$set": {output_field: embeddings}})
+    print(f"\nGenerated embeddings for {iteration} records.")
 
 
 def create_embeddings(text: str) -> str:
 
-    inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
-
-    with torch.no_grad():
-        outputs = model(**inputs)
-
-    embeddings_list = outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
-
-    return embeddings_list
+    model = "text-embedding-3-small"
+    text = text.replace("\n", " ")
+    return openaiClient.embeddings.create(input = [text], model=model).data[0].embedding
 
 
 def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: list = [],
@@ -131,13 +131,13 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
     input_messages = [
                 {"role": "system", "content": systemPrompt},
                 {"role": "user", "content": question},
-                {"role": "assistant", "content": "Hier sind einige relevante Informationen:\n" + results_str},
-                {"role": "user", "content": "Basierend auf den oben genannten Informationen, " + question},
+                {"role": "assistant", "content": 'Hier sind einige relevante Informationen:\n'  + results_str},
+                {"role": "user", "content": 'Basierend auf den oben genannten Informationen, ' + question}
                 ]
 
     if llm == "openai":
         response = openaiClient.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             temperature=temperature,
             messages = input_messages
             )
@@ -156,7 +156,7 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
         output = response.choices[0].message.content
 
     elif llm == "ollama_mistral":
-        response = ollama.chat(model="mistral", temperature=temperature, messages=input_messages)
+        response = ollama.chat(model="mistral", messages=input_messages)
         output = response['message']['content']
 
     elif llm == "ollama_llama3":
@@ -176,7 +176,7 @@ def text_search_artikel(search_text: str = "") -> [tuple, int]:
     else:
         query = {}
 
-    fields = {"_id": 1, "titel": 1, "datum": 1, "untertitel": 1, "text_content": 1}
+    fields = {"_id": 1, "titel": 1, "datum": 1, "untertitel": 1, "text": 1, "ki_abstract": 1}
     # sort = [("datum", -1)]
 
     cursor = collection_artikel_pool.find(query, fields) #.sort(sort)
@@ -187,23 +187,27 @@ def text_search_artikel(search_text: str = "") -> [tuple, int]:
 
 def vector_search_artikel(query_string: str, limit: int = 10) -> tuple:
 
-    embeddings = create_embeddings(query_string)
+    embeddings_query = create_embeddings(query_string)
 
     pipeline = [
         {"$vectorSearch": {
-            "index": "vector_index",
+            "index": "nahv_vector_index",
             "path": "embeddings",
-            "queryVector": embeddings,
+            "queryVector": embeddings_query,
             "numCandidates": int(limit * 10),
             "limit": limit,
             }
         },
         {"$project": {
             "_id": 1,
+            "quelle_id": 1,
+            "jahrgang": 1,
+            "nummer": 1,
             "titel": 1,
             "datum": 1,
             "untertitel": 1,
             "text": 1,
+            "ki_abstract": 1,
             "score": {"$meta": "vectorSearchScore"}
             }
         }
