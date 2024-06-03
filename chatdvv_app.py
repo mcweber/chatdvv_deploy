@@ -46,7 +46,7 @@ def add_user_dialog() -> None:
 # Main -----------------------------------------------------------------
 
 def main() -> None:
-    st.title("ChatDVV")
+    st.title("ChatDVV: Der Nahverkehr")
     st.write("Version 0.1 - 02.06.2024")
 
     # Initialize Session State -----------------------------------------
@@ -54,6 +54,7 @@ def main() -> None:
         st.session_state.userStatus = True
         st.session_state.searchStatus = False
         st.session_state.searchPref = "Artikel"
+        st.session_state.searchResults = 5
         st.session_state.llmStatus = "openai"
         st.session_state.systemPrompt = "Du bist ein hilfreicher Assistent und gibst Informationen aus dem Bereich Transport und Verkehr."
         st.session_state.results = ""
@@ -69,6 +70,11 @@ def main() -> None:
         switch_searchType = st.radio(label="Choose Search Type", options=("rag", "llm", "vector", "fulltext"), index=0)
         if switch_searchType != st.session_state.searchType:
             st.session_state.searchType = switch_searchType
+            st.experimental_rerun()
+
+        switch_search_results = st.slider("Search Results", 1, 20, st.session_state.searchResults)
+        if switch_search_results != st.session_state.searchResults:
+            st.session_state.searchResults = switch_search_results
             st.experimental_rerun()
 
         switch_llm = st.radio(label="Switch to LLM", options=("groq", "openai"), index=1)
@@ -105,7 +111,7 @@ def main() -> None:
             st.caption(f'Suche nach: "{question}". {count} Artikel gefunden.')
             st.session_state.searchStatus = False
 
-            for result in results[:10]:
+            for result in results[:st.session_state.searchResults]:
                 st.write(f"[{result['datum']}] {result['titel']}")
                 st.write(result['text'])
                 st.divider()
@@ -126,13 +132,13 @@ def main() -> None:
 
         elif st.session_state.searchType == "rag":
 
-            results = myapi.vector_search_artikel(question, 10)
+            results = myapi.vector_search_artikel(question, st.session_state.searchResults)
 
             with st.expander("DB Suchergebnisse"):
                 results_str = ""
                 for result in results:
-                    st.write(f"[{result['datum']}] {result['text'][:90] + '...'}")
-                    results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
+                    st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['ki_abstract']}")
+                    results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['ki_abstract']}\n\n"
 
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,
