@@ -1,12 +1,16 @@
 # ---------------------------------------------------
-# Version: 02.06.2024
+# Version: 09.06.2024
 # Author: M. Weber
+# ---------------------------------------------------
+# 05.06.2024 added searchFilter in st.session_state and sidebar
+# 07.06.2024 implemented rag with fulltext search
+# 09.06.2024 activated user management. Statistiken implemented.
 # ---------------------------------------------------
 
 import os
 import streamlit as st
 import chatdvv_module as myapi
-import user_management as um
+import user_management
 
 SEARCH_TYPES = {"vector": "Vector search", "llm": "LLM search", "rag": "RAG search", "fulltext": "Fulltext search"}
 
@@ -15,44 +19,50 @@ SEARCH_TYPES = {"vector": "Vector search", "llm": "LLM search", "rag": "RAG sear
 @st.experimental_dialog("Login User")
 def login_user_dialog() -> None:
 
-    st.write(f"Status: {st.session_state.userStatus}")
-    user_name = st.text_input("User")
-    user_pw = st.text_input("Passwort", type="password")
+    with st.form(key="loginForm"):
 
-    if st.button("Login"):
-        if user_name and user_pw:
-            if um.check_user(user_name, user_pw):
-                st.session_state.userStatus = 'True'
-                st.rerun()
+        st.write(f"Status: {st.session_state.userStatus}")
+        user_name = st.text_input("Benutzer")
+        user_pw = st.text_input("Passwort", type="password")
+
+        if st.form_submit_button("Login"):
+            if user_name and user_pw:
+                active_user = user_management.check_user(user_name, user_pw)
+                if active_user != "":
+                    st.session_state.userStatus = 'True'
+                    st.session_state.userName = active_user
+                    st.rerun()
+                else:
+                    st.error("User not found.")
             else:
-                st.error("User not found.")
-        else:
-            st.error("Please fill in all fields.")
+                st.error("Please fill in all fields.")
 
+@st.experimental_dialog("Statistiken")
+def statistiken_dialog() -> None:
 
-@st.experimental_dialog("Add User")
-def add_user_dialog() -> None:
-    user_name = st.text_input("User")
-    user_pw = st.text_input("Passwort", type="password")
-
-    if st.button("Add User"):
-        if user_name and user_pw:
-            um.check_user(user_name, user_pw)
-            st.success("User added.")
-        else:
-            st.error("Please fill in all fields.")
+    st.write(f"Anzahl Artikel: {myapi.collection.count_documents({})}")
+    st.write(f"Anzahl Artikel ohne Abstract: {myapi.collection.count_documents({'ki_abstract': ''})}")
+    st.write(f"Anzahl Artikel ohne Embeddings: {myapi.collection.count_documents({'embeddings': {}})}")
+#     st.write("-"*50)
+#     st.write(myapi.group_by_field())
+#     st.write(myapi.list_fields())
+    if st.button("Close"):
+        st.rerun()
 
 
 # Main -----------------------------------------------------------------
 
 def main() -> None:
-    st.title("ChatDVV: Der Nahverkehr")
-    st.write("Version 0.1 - 02.06.2024")
-
+    
+    st.set_page_config(page_title='DVV Insight', initial_sidebar_state="collapsed")
+    
     # Initialize Session State -----------------------------------------
     if 'userStatus' not in st.session_state:
-        st.session_state.userStatus = True
+        st.session_state.userStatus = False
+        st.session_state.userName = ""
         st.session_state.searchStatus = False
+        st.session_state.feldListe = list(myapi.group_by_field().keys())
+        st.session_state.searchFilter = st.session_state.feldListe
         st.session_state.searchPref = "Artikel"
         st.session_state.searchResults = 5
         st.session_state.llmStatus = "openai"
@@ -61,12 +71,29 @@ def main() -> None:
         st.session_state.history = []
         st.session_state.searchType = "rag" # llm, vector, rag, fulltext
 
-    if not st.session_state.userStatus:
+    if st.session_state.userStatus == False:
         login_user_dialog()
+        # st.experimental_rerun()
+
+    st.header("DVV Insight")
+    # st.subheader("Research Bot für Fachartikel im Bereich Transport und Verkehr")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("Version 0.1.3 - 09.06.2024")
+    with col2:
+        if st.session_state.userStatus:
+            st.write(f"Eingeloggt als: {st.session_state.userName}")
+        else:
+            st.write("Nicht eingeloggt.")
 
     # Define Sidebar ---------------------------------------------------
     with st.sidebar:
 
+        switch_searchFilter = st.multiselect(label="Choose Publications", options=st.session_state.feldListe, default=st.session_state.searchFilter)
+        if switch_searchFilter != st.session_state.searchFilter:
+            st.session_state.searchFilter = switch_searchFilter
+            st.experimental_rerun()
+        
         switch_searchType = st.radio(label="Choose Search Type", options=("rag", "llm", "vector", "fulltext"), index=0)
         if switch_searchType != st.session_state.searchType:
             st.session_state.searchType = switch_searchType
@@ -87,34 +114,58 @@ def main() -> None:
             st.session_state.systemPrompt = switch_SystemPrompt
             st.experimental_rerun()
 
+        if st.button("Statistiken"):
+            statistiken_dialog()
+            
         if st.button("Logout"):
             st.session_state.userStatus = False
             st.session_state.searchStatus = False
+            st.session_state.userName = ""
+            st.experimental_rerun()
 
     # Define Search Form ----------------------------------------------
     with st.form(key="searchForm"):
         question = st.text_input(SEARCH_TYPES[st.session_state.searchType])
+
         if st.session_state.searchType in ["rag", "llm"]:
             button_caption = "Fragen"
         else:
             button_caption = "Suchen"
-        if st.form_submit_button(button_caption):
+        
+        if st.form_submit_button(button_caption) and question != "":
             st.session_state.searchStatus = True
-
+        
     # Define Search & Search Results -------------------------------------------
     if st.session_state.userStatus and st.session_state.searchStatus:
 
         if st.session_state.searchType == "fulltext":
 
-            results, count = myapi.text_search_artikel(question)
+            results, results_count = myapi.text_search(search_text=question, limit=st.session_state.searchResults)
 
-            st.caption(f'Suche nach: "{question}". {count} Artikel gefunden.')
+            # st.caption(f'Suche nach: "{question}". {results_count} Artikel gefunden.')
             st.session_state.searchStatus = False
 
-            for result in results[:st.session_state.searchResults]:
-                st.write(f"[{result['datum']}] {result['titel']}")
-                st.write(result['text'])
+            counter = 1
+            for result in results:
+                # st.write(f"[{result['datum']}] {result['titel']}")
+                st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                st.write(result['text'][:500] + " ...")
                 st.divider()
+                counter += 1
+                if counter > st.session_state.searchResults:
+                    break
+
+        elif st.session_state.searchType == "vector":
+
+                    results = myapi.vector_search(query_string=question, limit=st.session_state.searchResults)
+
+                    for result in results:
+                        # st.write(f"[{result['datum']}] {result['titel']}")
+                        st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                        st.write(result['text'])
+                        st.divider()
+
+                    st.session_state.searchStatus = False
 
         elif st.session_state.searchType == "llm":
 
@@ -132,13 +183,14 @@ def main() -> None:
 
         elif st.session_state.searchType == "rag":
 
-            results = myapi.vector_search_artikel(question, st.session_state.searchResults)
+            # results = myapi.vector_search(question, st.session_state.searchResults)
+            results, results_count = myapi.text_search(search_text=question, limit=st.session_state.searchResults)
 
             with st.expander("DB Suchergebnisse"):
                 results_str = ""
                 for result in results:
-                    st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['ki_abstract']}")
-                    results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['ki_abstract']}\n\n"
+                    st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                    results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
 
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,
@@ -151,18 +203,6 @@ def main() -> None:
 
             st.write(summary)
             st.session_state.searchStatus = False
-
-        elif st.session_state.searchType == "vector":
-
-            results = myapi.vector_search_artikel(question, 10)
-
-            for result in results:
-                st.write(f"[{result['datum']}] {result['titel']}")
-                st.write(result['text'])
-                st.divider()
-
-            st.session_state.searchStatus = False
-
 
 if __name__ == "__main__":
     main()

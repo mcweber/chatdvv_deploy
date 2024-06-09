@@ -1,3 +1,10 @@
+# ---------------------------------------------------
+# Version: 09.06.2024
+# Author: M. Weber
+# ---------------------------------------------------
+# 09.06.2024 Bug fixes. Implemented Vorname and Nachname.
+# ---------------------------------------------------
+
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -8,8 +15,7 @@ from pymongo.errors import DuplicateKeyError
 # Define constants ----------------------------------
 load_dotenv()
 
-MONGO_URI = os.environ.get('MONGO_URI')
-mongoClient = MongoClient(MONGO_URI)
+mongoClient = MongoClient(os.environ.get('MONGO_URI_DVV'))
 database = mongoClient.user_pool
 collection_user_pool = database.users
 
@@ -18,25 +24,25 @@ collection_user_pool = database.users
 def add_user(user_name, user_pw) -> bool:
     try:
         collection_user_pool.insert_one({
-            'user_name': user_name,
+            'username': user_name,
             'user_password': user_pw,
-            'created_at': datetime.now()
+            'created': datetime.now()
         })
         return True
     except DuplicateKeyError:
         return False
     
 
-def check_user(user_name, user_pw) -> bool:
+def check_user(user_name, user_pw) -> str:
     user = collection_user_pool.find_one({
-        'user_name': user_name,
+        'username': user_name,
         'user_password': user_pw
     })
-    return user
+    return f"{user['vorname']} {user['nachname']}" if user else ""
 
 
 def delete_user(user_name) -> bool:
-    collection_user_pool.delete_one({'user_name': user_name})
+    collection_user_pool.delete_one({'username': user_name})
     return True
 
 

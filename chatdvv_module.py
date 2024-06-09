@@ -1,19 +1,13 @@
 # ---------------------------------------------------
-# Version: 02.06.2024
+# Version: 09.06.2024
 # Author: M. Weber
+# ---------------------------------------------------
+# 07.06.2024 Adapted fulltext search to atlas search
 # ---------------------------------------------------
 
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-import re
-
-import requests
-import imaplib
-import email
-from bs4 import BeautifulSoup
-
-# from validators import url as valid_url
 
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
@@ -26,7 +20,7 @@ import ollama
 load_dotenv()
 mongoClient = MongoClient(os.environ.get('MONGO_URI_DVV'))
 database = mongoClient.dvv_content_pool
-collection_artikel_pool = database.dvv_artikel_nahv
+collection = database.dvv_artikel
 
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 
@@ -36,7 +30,7 @@ groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
 
 def generate_abstracts(input_field: str, output_field: str, max_iterations: int = 20) -> None:
 
-    cursor = collection_artikel_pool.find({output_field: ""}).limit(max_iterations)
+    cursor = collection.find({output_field: ""}).limit(max_iterations)
 
     iteration = 0
 
@@ -53,7 +47,7 @@ def generate_abstracts(input_field: str, output_field: str, max_iterations: int 
         print(f"#{iteration} Duration: {round(duration.total_seconds(), 2)}")
         print("-"*50)
 
-        collection_artikel_pool.update_one({"_id": record.get('_id')}, {"$set": {output_field: abstract}})
+        collection.update_one({"_id": record.get('_id')}, {"$set": {output_field: abstract}})
 
     cursor.close()
 
@@ -95,8 +89,8 @@ def generate_embeddings(input_field: str, output_field: str,
                         max_iterations: int = 10) -> None:
 
     query = {output_field: {}}
-    cursor = collection_artikel_pool.find(query)
-    count = collection_artikel_pool.count_documents(query)
+    cursor = collection.find(query)
+    count = collection.count_documents(query)
     print(f"Records without embeddings: {count}")
 
     iteration = 0
@@ -112,13 +106,16 @@ def generate_embeddings(input_field: str, output_field: str,
             article_text = "Fehler: Kein Text vorhanden."
         else:
             embeddings = create_embeddings(article_text)
-            collection_artikel_pool.update_one({"_id": record['_id']}, {"$set": {output_field: embeddings}})
+            collection.update_one({"_id": record['_id']}, {"$set": {output_field: embeddings}})
 
     print(f"\nGenerated embeddings for {iteration} records.")
 
 
 def create_embeddings(text: str) -> str:
 
+    if text == "":
+        return "empty"
+    
     model = "text-embedding-3-small"
     text = text.replace("\n", " ")
     return openaiClient.embeddings.create(input = [text], model=model).data[0].embedding
@@ -143,10 +140,6 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
             )
         output = response.choices[0].message.content
 
-        # # Get the current usage balance
-        # usage = openaiClient.Usage.retrieve()
-        # print("Current usage balance:", usage['usage']['total'])
-
     elif llm == "groq":
         response = groqClient.chat.completions.create(
             model="mixtral-8x7b-32768",
@@ -169,23 +162,52 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
     return output
 
 
-def text_search_artikel(search_text: str = "") -> [tuple, int]:
+def text_search(search_text : str = "*", limit : int = 10) -> [tuple, int]:
 
-    if search_text != "":
-        query = {"$text": {"$search": search_text }}
-    else:
-        query = {}
+    # query = {"$search": {"index": "volltext", "text": search_text, "path": {"wildcard": "*"}}}
+    query = {
+        "index": "volltext",
+        "text": {
+            "query": search_text, 
+            "path": {"wildcard": "*"}
+            }
+        }
+    
+    fields = {
+        "_id": 1,
+        "quelle_id": 1,
+        "jahrgang": 1,
+        "nummer": 1,
+        "titel": 1, 
+        "datum": 1, 
+        "untertitel": 1, 
+        "text": 1, 
+        "ki_abstract": 1
+        }
 
-    fields = {"_id": 1, "titel": 1, "datum": 1, "untertitel": 1, "text": 1, "ki_abstract": 1}
-    # sort = [("datum", -1)]
+    pipeline = [
+        {"$search": query},
+        {"$project": fields},
+        {"$limit": limit}
+        ]
 
-    cursor = collection_artikel_pool.find(query, fields) #.sort(sort)
-    count = collection_artikel_pool.count_documents(query)
+    # pipeline_meta = [
+    #     {
+    #         "$searchMeta": query,
+    #         "$count": {
+    #             "type": "total"
+    #             }
+    #         }
+    #     ]
+
+    cursor = collection.aggregate(pipeline)
+    # count = collection.aggregate(pipeline_meta)
+    count = 0
 
     return cursor, count
 
 
-def vector_search_artikel(query_string: str, limit: int = 10) -> tuple:
+def vector_search(query_string: str = "", limit: int = 10) -> tuple:
 
     embeddings_query = create_embeddings(query_string)
 
@@ -213,15 +235,47 @@ def vector_search_artikel(query_string: str, limit: int = 10) -> tuple:
         }
         ]
 
-    result = collection_artikel_pool.aggregate(pipeline)
+    result = collection.aggregate(pipeline)
 
     return result
+
 
 def print_results(cursor: list) -> None:
 
     if not cursor:
         print("Keine Artikel gefunden.")
 
-    for i in cursor:
-        print(f"[{str(i['datum'])[:10]}] {i['titel'][:70]}")
+    for item in cursor:
+        print(f"[{str(item['datum'])[:10]}] {item['titel'][:70]}")
         # print("-"*80)
+
+
+def group_by_field() -> dict:
+
+    pipeline = [
+            {
+            '$group': {
+                '_id': '$quelle_id', 
+                'count': {
+                    '$sum': 1
+                    }
+                }
+            }, {
+            '$sort': {
+                'count': -1
+                }
+            }
+            ]
+    result = collection.aggregate(pipeline)
+    
+    # transfor into dict
+    return_dict = {}
+    for item in result:
+        return_dict[item['_id']] = item['count']
+       
+    return return_dict
+
+
+def list_fields() -> dict:
+    result = collection.find_one()
+    return result.keys()
