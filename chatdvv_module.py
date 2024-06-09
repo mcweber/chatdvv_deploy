@@ -167,6 +167,7 @@ def text_search(search_text : str = "*", limit : int = 10) -> [tuple, int]:
     # query = {"$search": {"index": "volltext", "text": search_text, "path": {"wildcard": "*"}}}
     query = {
         "index": "volltext",
+        "sort": {"date": -1},
         "text": {
             "query": search_text, 
             "path": {"wildcard": "*"}
@@ -179,7 +180,8 @@ def text_search(search_text : str = "*", limit : int = 10) -> [tuple, int]:
         "jahrgang": 1,
         "nummer": 1,
         "titel": 1, 
-        "datum": 1, 
+        "datum": 1,
+        "date": 1,
         "untertitel": 1, 
         "text": 1, 
         "ki_abstract": 1
