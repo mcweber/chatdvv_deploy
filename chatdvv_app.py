@@ -70,7 +70,7 @@ def main() -> None:
         st.session_state.results: str = ""
         st.session_state.searchFilter: list = st.session_state.feldListe
         st.session_state.searchPref: str = "Artikel"
-        st.session_state.searchResultsLimit:int  = 5
+        st.session_state.searchResultsLimit:int  = 25
         st.session_state.searchStatus: bool = False
         st.session_state.searchType: str = "rag"
         st.session_state.searchTypeIndex: int  = SEARCH_TYPES.index(st.session_state.searchType)
@@ -103,7 +103,7 @@ def main() -> None:
             st.session_state.marktbereich = "Alle"
             st.session_state.marktbereichIndex = 0
             st.experimental_rerun()
-        switch_search_results = st.slider("Search Results", 1, 20, st.session_state.searchResultsLimit)
+        switch_search_results = st.slider("Search Results", 1, 100, st.session_state.searchResultsLimit)
         if switch_search_results != st.session_state.searchResultsLimit:
             st.session_state.searchResultsLimit = switch_search_results
             st.experimental_rerun()
@@ -200,10 +200,9 @@ def main() -> None:
             st.write(summary)
         # RAG Search -----------------------------------------------------
         elif st.session_state.searchType == "rag":
-            # results = myapi.vector_search(question, st.session_state.searchResultsLimit)
             results = myapi.vector_search(
-                search_text=question, 
-                filter=st.session_state.searchFilter, 
+                query_string=question, 
+                # filter=st.session_state.searchFilter, 
                 limit=st.session_state.searchResultsLimit
                 )
             with st.expander("DB Suchergebnisse"):
