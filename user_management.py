@@ -1,8 +1,9 @@
 # ---------------------------------------------------
-# Version: 09.06.2024
+# Version: 16.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 09.06.2024 Bug fixes. Implemented Vorname and Nachname.
+# 16.06.2024 check_user() returns user object or empty string.
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -38,7 +39,7 @@ def check_user(user_name, user_pw) -> str:
         'username': user_name,
         'user_password': user_pw
     })
-    return f"{user['vorname']} {user['nachname']}" if user else ""
+    return user if user else ""
 
 
 def delete_user(user_name) -> bool:

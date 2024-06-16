@@ -8,6 +8,7 @@
 # 15.06.2024 added filter for textsearch
 # 16.06.2024 switched rag to vector search
 # 16.06.2024 added Markbereiche as search filter
+# 16.06.2023 added user role. sidebar only for admin
 # ---------------------------------------------------
 
 import os
@@ -33,9 +34,10 @@ def login_user_dialog() -> None:
         if st.form_submit_button("Login"):
             if user_name and user_pw:
                 active_user = user_management.check_user(user_name, user_pw)
-                if active_user != "":
+                if active_user:
+                    st.session_state.userName = active_user["username"]
+                    st.session_state.userRole = active_user["rolle"]
                     st.session_state.userStatus = 'True'
-                    st.session_state.userName = active_user
                     st.rerun()
                 else:
                     st.error("User not found.")
@@ -93,35 +95,36 @@ def main() -> None:
             st.write("Nicht eingeloggt.")
 
     # Define Sidebar ---------------------------------------------------
-    with st.sidebar:
-        switch_searchFilter = st.multiselect(label="Choose Publications", options=st.session_state.feldListe, default=st.session_state.searchFilter)
-        if switch_searchFilter != st.session_state.searchFilter:
-            st.session_state.searchFilter = switch_searchFilter
-            st.experimental_rerun()
-        if st.button("Reset Filter"):
-            st.session_state.searchFilter = st.session_state.feldListe
-            st.session_state.marktbereich = "Alle"
-            st.session_state.marktbereichIndex = 0
-            st.experimental_rerun()
-        switch_search_results = st.slider("Search Results", 1, 100, st.session_state.searchResultsLimit)
-        if switch_search_results != st.session_state.searchResultsLimit:
-            st.session_state.searchResultsLimit = switch_search_results
-            st.experimental_rerun()
-        switch_llm = st.radio(label="Switch to LLM", options=("groq", "openai"), index=1)
-        if switch_llm != st.session_state.llmStatus:
-            st.session_state.llmStatus = switch_llm
-            st.experimental_rerun()
-        switch_SystemPrompt = st.text_area("System-Prompt", st.session_state.systemPrompt)
-        if switch_SystemPrompt != st.session_state.systemPrompt:
-            st.session_state.systemPrompt = switch_SystemPrompt
-            st.experimental_rerun()
-        if st.button("Statistiken"):
-            statistiken_dialog()
-        if st.button("Logout"):
-            st.session_state.userStatus = False
-            st.session_state.searchStatus = False
-            st.session_state.userName = ""
-            st.experimental_rerun()
+    if st.session_state.userRole == "admin":
+        with st.sidebar:
+            switch_searchFilter = st.multiselect(label="Choose Publications", options=st.session_state.feldListe, default=st.session_state.searchFilter)
+            if switch_searchFilter != st.session_state.searchFilter:
+                st.session_state.searchFilter = switch_searchFilter
+                st.experimental_rerun()
+            if st.button("Reset Filter"):
+                st.session_state.searchFilter = st.session_state.feldListe
+                st.session_state.marktbereich = "Alle"
+                st.session_state.marktbereichIndex = 0
+                st.experimental_rerun()
+            switch_search_results = st.slider("Search Results", 1, 100, st.session_state.searchResultsLimit)
+            if switch_search_results != st.session_state.searchResultsLimit:
+                st.session_state.searchResultsLimit = switch_search_results
+                st.experimental_rerun()
+            switch_llm = st.radio(label="Switch to LLM", options=("groq", "openai"), index=1)
+            if switch_llm != st.session_state.llmStatus:
+                st.session_state.llmStatus = switch_llm
+                st.experimental_rerun()
+            switch_SystemPrompt = st.text_area("System-Prompt", st.session_state.systemPrompt)
+            if switch_SystemPrompt != st.session_state.systemPrompt:
+                st.session_state.systemPrompt = switch_SystemPrompt
+                st.experimental_rerun()
+            if st.button("Statistiken"):
+                statistiken_dialog()
+            if st.button("Logout"):
+                st.session_state.userStatus = False
+                st.session_state.searchStatus = False
+                st.session_state.userName = ""
+                st.experimental_rerun()
 
     # Define Search Type ------------------------------------------------
     switch_searchType = st.radio(label="Auswahl Suchtyp", options=SEARCH_TYPES, index=st.session_state.searchTypeIndex, horizontal=True)
