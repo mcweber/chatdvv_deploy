@@ -174,7 +174,7 @@ def main() -> None:
             st.write(summary)
         elif st.session_state.searchType == "rag":
             # results = myapi.vector_search(question, st.session_state.searchResults)
-            results, results_count = myapi.text_search(
+            results, results_count = myapi.vector_search(
                 search_text=question, 
                 filter=st.session_state.searchFilter, 
                 limit=st.session_state.searchResults
