@@ -1,11 +1,12 @@
 # ---------------------------------------------------
-# Version: 15.06.2024
+# Version: 16.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
 # 07.06.2024 implemented rag with fulltext search
 # 09.06.2024 activated user management. Statistiken implemented.
 # 15.06.2024 added filter for textsearch
+# 16.06.2024 switched rag to vector search
 # ---------------------------------------------------
 
 import os
@@ -174,7 +175,7 @@ def main() -> None:
             st.write(summary)
         elif st.session_state.searchType == "rag":
             # results = myapi.vector_search(question, st.session_state.searchResults)
-            results, results_count = myapi.vector_search(
+            results = myapi.vector_search(
                 search_text=question, 
                 filter=st.session_state.searchFilter, 
                 limit=st.session_state.searchResults
