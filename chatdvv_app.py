@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 16.06.2024
+# Version: 17.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -9,6 +9,7 @@
 # 16.06.2024 switched rag to vector search
 # 16.06.2024 added Markbereiche as search filter
 # 16.06.2023 added user role. sidebar only for admin
+# 17.06.2024 Vektor search only without filter
 # ---------------------------------------------------
 
 import os
@@ -87,7 +88,7 @@ def main() -> None:
     st.header("DVV Insight")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("Version 0.1.5 - 16.06.2024")
+        st.write("Version 0.1.6 - 17.06.2024")
     with col2:
         if st.session_state.userStatus:
             st.write(f"Eingeloggt als: {st.session_state.userName}")
@@ -131,6 +132,10 @@ def main() -> None:
     if switch_searchType != st.session_state.searchType:
         st.session_state.searchType = switch_searchType
         st.session_state.searchTypeIndex = SEARCH_TYPES.index(switch_searchType)
+        if switch_searchType == "vektor":
+            st.session_state.searchFilter = st.session_state.feldListe
+            st.session_state.marktbereich = "Alle"
+            st.session_state.marktbereichIndex = MARKTBEREICHE.index("Alle")
         st.experimental_rerun()
     
     # Define Search Filter ----------------------------------------------

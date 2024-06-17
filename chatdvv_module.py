@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 15.06.2024
+# Version: 17.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -7,6 +7,7 @@
 # 15.06.2024 Added reset filter. Added filter for textsearch
 # 15.06.2024 Added torch model for embeddings
 # 15.06.2024 Updated vector_search to use text_embeddings
+# 17.06.2024 Vektor search only without filter
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -85,10 +86,7 @@ def write_summary(text: str) -> str:
 
 def generate_embeddings(input_field: str, output_field: str, 
                         max_iterations: int = 10) -> None:
-    query = {output_field: {}}
-    cursor = collection.find(query)
-    # count = collection.count_documents(query)
-    # print(f"Records without embeddings: {count}")
+    cursor = collection.find({output_field: {}})
     iteration = 0
     for record in cursor:
         iteration += 1
@@ -184,7 +182,8 @@ def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -
         }
     pipeline = [
         {"$search": query},
-        {"$match": generate_filter(filter, "quelle_id")},
+        {"$match": {"quelle_id": {"$in": filter}}},
+        # {"$match": generate_filter(filter, "quelle_id")},
         {"$project": fields},
         {"$limit": limit}
         ]
@@ -202,6 +201,7 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
             "queryVector": embeddings_query,
             "numCandidates": int(limit * 10),
             "limit": limit,
+            # "filter": {"quelle_id_embeddings": "THB"}
             }
     fields = {
             "_id": 1,
@@ -218,7 +218,6 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
             }
     pipeline = [
         {"$vectorSearch": query},
-        {"$match": generate_filter(filter, "quelle_id")},
         {"$sort": {sort: -1}},
         {"$project": fields}
         ]
