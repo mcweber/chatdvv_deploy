@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 17.06.2024
+# Version: 21.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -9,7 +9,7 @@
 # 16.06.2024 switched rag to vector search
 # 16.06.2024 added Markbereiche as search filter
 # 16.06.2023 added user role. sidebar only for admin
-# 17.06.2024 Vektor search only without filter
+# 21.06.2024 added switch between fulltext and vector search for rag
 # ---------------------------------------------------
 
 import os
@@ -23,6 +23,7 @@ PUB_LOG = ("THB", "DVZ", "DVZT", "THBT", "DVZMG", "DVZM", "DVZ-Brief")
 PUB_MAR = ("THB", "THBT", "SHF", "SHIOF", "SPI", "NSH")
 PUB_RAIL =("EI", "SD", "BM", "BAMA")
 PUB_OEPNV = ("RABUS", "NAHV", "NANA", "DNV")
+LLMS = ("openai_gpt-4o", "groq_mixtral-8x7b-32768", "groq_llama3-70b-8192", "groq_gemma-7b-it")
 
 # Functions -------------------------------------------------------------
 
@@ -67,17 +68,18 @@ def main() -> None:
     if 'userStatus' not in st.session_state:
         st.session_state.feldListe: list = list(myapi.group_by_field().keys())
         st.session_state.history: list = []
-        st.session_state.llmStatus: str = "openai"
+        st.session_state.llmStatus: str = LLMS[0]
         st.session_state.marktbereich: str = "Alle"
         st.session_state.marktbereichIndex: int = 0
+        st.session_state.rag_index: str = "fulltext"
         st.session_state.results: str = ""
         st.session_state.searchFilter: list = st.session_state.feldListe
         st.session_state.searchPref: str = "Artikel"
-        st.session_state.searchResultsLimit:int  = 25
+        st.session_state.searchResultsLimit:int  = 50
         st.session_state.searchStatus: bool = False
         st.session_state.searchType: str = "rag"
         st.session_state.searchTypeIndex: int  = SEARCH_TYPES.index(st.session_state.searchType)
-        st.session_state.systemPrompt: str = "Du bist ein hilfreicher Assistent und gibst Informationen aus dem Bereich Transport und Verkehr."
+        st.session_state.systemPrompt: str = myapi.get_systemprompt()
         st.session_state.userName: str = ""
         st.session_state.userRole: str = ""
         st.session_state.userStatus: bool = False
@@ -88,7 +90,7 @@ def main() -> None:
     st.header("DVV Insight")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("Version 0.1.6 - 17.06.2024")
+        st.write("Version 0.2 - 21.06.2024")
     with col2:
         if st.session_state.userStatus:
             st.write(f"Eingeloggt als: {st.session_state.userName}")
@@ -111,13 +113,18 @@ def main() -> None:
             if switch_search_results != st.session_state.searchResultsLimit:
                 st.session_state.searchResultsLimit = switch_search_results
                 st.experimental_rerun()
-            switch_llm = st.radio(label="Switch to LLM", options=("groq", "openai"), index=1)
+            switch_llm = st.radio(label="Switch LLM", options=LLMS, index=0)
             if switch_llm != st.session_state.llmStatus:
                 st.session_state.llmStatus = switch_llm
+                st.experimental_rerun()
+            switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vector"), index=0)
+            if switch_rag_index != st.session_state.rag_index:
+                st.session_state.rag_index = switch_rag_index
                 st.experimental_rerun()
             switch_SystemPrompt = st.text_area("System-Prompt", st.session_state.systemPrompt)
             if switch_SystemPrompt != st.session_state.systemPrompt:
                 st.session_state.systemPrompt = switch_SystemPrompt
+                myapi.update_systemprompt(switch_SystemPrompt)
                 st.experimental_rerun()
             if st.button("Statistiken"):
                 statistiken_dialog()
@@ -132,10 +139,6 @@ def main() -> None:
     if switch_searchType != st.session_state.searchType:
         st.session_state.searchType = switch_searchType
         st.session_state.searchTypeIndex = SEARCH_TYPES.index(switch_searchType)
-        if switch_searchType == "vektor":
-            st.session_state.searchFilter = st.session_state.feldListe
-            st.session_state.marktbereich = "Alle"
-            st.session_state.marktbereichIndex = MARKTBEREICHE.index("Alle")
         st.experimental_rerun()
     
     # Define Search Filter ----------------------------------------------
@@ -157,7 +160,7 @@ def main() -> None:
 
     # Define Search Form ----------------------------------------------
     with st.form(key="searchForm"):
-        question = st.text_input(st.session_state.searchType)
+        question = st.text_input(f"{st.session_state.searchType} [{st.session_state.rag_index}]")
         if st.session_state.searchType in ["rag", "llm"]:
             button_caption = "Fragen"
         else:
@@ -208,11 +211,18 @@ def main() -> None:
             st.write(summary)
         # RAG Search -----------------------------------------------------
         elif st.session_state.searchType == "rag":
-            results = myapi.vector_search(
+            if st.session_state.rag_index == "vector":
+                results = myapi.vector_search(
                 query_string=question, 
                 # filter=st.session_state.searchFilter, 
                 limit=st.session_state.searchResultsLimit
                 )
+            else:
+                results, results_count = myapi.text_search(
+                    search_text=question, 
+                    filter=st.session_state.searchFilter, 
+                    limit=st.session_state.searchResultsLimit
+                    )
             with st.expander("DB Suchergebnisse"):
                 results_str = ""
                 for result in results:

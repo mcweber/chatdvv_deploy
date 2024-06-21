@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 15.06.2024
+# Version: 21.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -7,6 +7,8 @@
 # 15.06.2024 Added reset filter. Added filter for textsearch
 # 15.06.2024 Added torch model for embeddings
 # 15.06.2024 Updated vector_search to use text_embeddings
+# 21.06.2024 added update_systemprompt and get_systemprompt
+# 21.06.2024 added more LLMs
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -28,6 +30,7 @@ load_dotenv()
 mongoClient = MongoClient(os.environ.get('MONGO_URI_DVV'))
 database = mongoClient.dvv_content_pool
 collection = database.dvv_artikel
+collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
 
@@ -125,16 +128,37 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
                 {"role": "assistant", "content": 'Hier sind einige relevante Informationen:\n'  + results_str},
                 {"role": "user", "content": 'Basierend auf den oben genannten Informationen, ' + question}
                 ]
-    if llm == "openai":
+    if llm == "openai_gpt-4o":
         response = openaiClient.chat.completions.create(
             model="gpt-4o",
             temperature=temperature,
             messages = input_messages
             )
         output = response.choices[0].message.content
-    elif llm == "groq":
+    # elif llm == "groq_whisper-large-v3":
+    #     response = groqClient.chat.completions.create(
+    #         model="whisper-large-v3",
+    #         # temperature=temperature,
+    #         messages=input_messages
+    #     )
+    #     output = response.choices[0].message.content
+    elif llm == "groq_mixtral-8x7b-32768":
         response = groqClient.chat.completions.create(
             model="mixtral-8x7b-32768",
+            temperature=temperature,
+            messages=input_messages
+        )
+        output = response.choices[0].message.content
+    elif llm == "groq_llama3-70b-8192":
+        response = groqClient.chat.completions.create(
+            model="llama3-70b-8192",
+            temperature=temperature,
+            messages=input_messages
+        )
+        output = response.choices[0].message.content
+    elif llm == "groq_gemma-7b-it":
+        response = groqClient.chat.completions.create(
+            model="gemma-7b-it",
             temperature=temperature,
             messages=input_messages
         )
@@ -200,7 +224,7 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
             "queryVector": embeddings_query,
             "numCandidates": int(limit * 10),
             "limit": limit,
-            "filter": {"quelle_id": "THB"}
+            # "filter": {"quelle_id": "THB"}
             }
     fields = {
             "_id": 1,
@@ -264,3 +288,12 @@ def list_fields() -> dict:
 def get_document(id: str) -> dict:
     document = collection.find_one({"id": id})
     return document
+
+
+def get_systemprompt() -> str:
+    result = collection_config.find_one({"key": "systemprompt"})
+    return str(result.get("content"))
+    
+
+def update_systemprompt(text: str = ""):
+    result = collection_config.update_one({"key": "systemprompt"}, {"$set": {"content": text}})
