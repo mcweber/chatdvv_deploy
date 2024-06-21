@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 17.06.2024
+# Version: 15.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -7,7 +7,6 @@
 # 15.06.2024 Added reset filter. Added filter for textsearch
 # 15.06.2024 Added torch model for embeddings
 # 15.06.2024 Updated vector_search to use text_embeddings
-# 17.06.2024 Vektor search only without filter
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -161,7 +160,7 @@ def generate_filter(filter: list, field: str) -> dict:
 def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -> [tuple, int]:
     # query = {"$search": {"index": "volltext", "text": search_text, "path": {"wildcard": "*"}}}
     query = {
-        "index": "volltext",
+        "index": "volltext_gewichtet",
         "sort": {"date": -1},
         "text": {
             "query": search_text, 
@@ -201,7 +200,7 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
             "queryVector": embeddings_query,
             "numCandidates": int(limit * 10),
             "limit": limit,
-            # "filter": {"quelle_id_embeddings": "THB"}
+            "filter": {"quelle_id": "THB"}
             }
     fields = {
             "_id": 1,
@@ -217,6 +216,8 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
             "score": {"$meta": "vectorSearchScore"}
             }
     pipeline = [
+        # {"$match": {"quelle_id": {"$in": filter}}},
+        # {"$match": generate_filter(filter, "quelle_id")},
         {"$vectorSearch": query},
         {"$sort": {sort: -1}},
         {"$project": fields}
