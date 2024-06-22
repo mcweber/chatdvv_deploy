@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 21.06.2024
+# Version: 22.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -9,6 +9,7 @@
 # 15.06.2024 Updated vector_search to use text_embeddings
 # 21.06.2024 added update_systemprompt and get_systemprompt
 # 21.06.2024 added more LLMs
+# 22.06.2024 added anthropic
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -19,11 +20,15 @@ from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 
 import openai
+import anthropic
 from groq import Groq
 import ollama
 
 import torch
 from transformers import AutoTokenizer, AutoModel
+
+# Define global variables ----------------------------------
+LLMS = ("openai_gpt-4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama3-70b-8192", "groq_gemma-7b-it")
 
 # Init MongoDB Client
 load_dotenv()
@@ -32,6 +37,7 @@ database = mongoClient.dvv_content_pool
 collection = database.dvv_artikel
 collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
+anthropicClient = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
 
 # Load pre-trained model and tokenizer
@@ -135,6 +141,14 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
             messages = input_messages
             )
         output = response.choices[0].message.content
+    elif llm == "anthropic":
+        response = anthropicClient.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=1024,
+            system=systemPrompt,
+            messages=input_messages[1:] # system prompt is not needed
+        )
+        output = response.content[0].text
     # elif llm == "groq_whisper-large-v3":
     #     response = groqClient.chat.completions.create(
     #         model="whisper-large-v3",

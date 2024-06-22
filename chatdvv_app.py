@@ -23,7 +23,6 @@ PUB_LOG = ("THB", "DVZ", "DVZT", "THBT", "DVZMG", "DVZM", "DVZ-Brief")
 PUB_MAR = ("THB", "THBT", "SHF", "SHIOF", "SPI", "NSH")
 PUB_RAIL =("EI", "SD", "BM", "BAMA")
 PUB_OEPNV = ("RABUS", "NAHV", "NANA", "DNV")
-LLMS = ("openai_gpt-4o", "groq_mixtral-8x7b-32768", "groq_llama3-70b-8192", "groq_gemma-7b-it")
 
 # Functions -------------------------------------------------------------
 
@@ -68,7 +67,7 @@ def main() -> None:
     if 'userStatus' not in st.session_state:
         st.session_state.feldListe: list = list(myapi.group_by_field().keys())
         st.session_state.history: list = []
-        st.session_state.llmStatus: str = LLMS[0]
+        st.session_state.llmStatus: str = myapi.LLMS[0]
         st.session_state.marktbereich: str = "Alle"
         st.session_state.marktbereichIndex: int = 0
         st.session_state.rag_index: str = "fulltext"
@@ -90,7 +89,7 @@ def main() -> None:
     st.header("DVV Insight")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("Version 0.2 - 21.06.2024")
+        st.write("Version 0.2.1 - 22.06.2024")
     with col2:
         if st.session_state.userStatus:
             st.write(f"Eingeloggt als: {st.session_state.userName}")
@@ -113,7 +112,7 @@ def main() -> None:
             if switch_search_results != st.session_state.searchResultsLimit:
                 st.session_state.searchResultsLimit = switch_search_results
                 st.experimental_rerun()
-            switch_llm = st.radio(label="Switch LLM", options=LLMS, index=0)
+            switch_llm = st.radio(label="Switch LLM", options=myapi.LLMS, index=0)
             if switch_llm != st.session_state.llmStatus:
                 st.session_state.llmStatus = switch_llm
                 st.experimental_rerun()
