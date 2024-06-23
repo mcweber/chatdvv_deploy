@@ -42,6 +42,7 @@ collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 anthropicClient = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
+ddg_client = Duckduckgo()
 
 # Load pre-trained model and tokenizer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -269,8 +270,7 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
 
 
 def web_search(query: str = "", limit: int = 10) -> list:
-    ddg = Duckduckgo()
-    results = ddg.search(f"Nachrichten über '{query}'")
+    results = ddg_client.search(f"Nachrichten über '{query}'")
     if results:
         return results["data"][:limit]
     else:

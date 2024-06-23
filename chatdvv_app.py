@@ -257,7 +257,7 @@ def main() -> None:
                         st.write(f"{result['title']} [{result['url']}]")
                         web_results_str += f"Titel: {result['title']}\nURL: {result['url']}\n\n"
             else:
-                web_results_str = ""
+                st.write("WEB-Suche bringt keine Ergebnisse.")
             # LLM Search ------------------------------------------------
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,
