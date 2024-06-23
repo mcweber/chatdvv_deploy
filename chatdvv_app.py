@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 21.06.2024
+# Version: 22.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -10,6 +10,8 @@
 # 16.06.2024 added Markbereiche as search filter
 # 16.06.2023 added user role. sidebar only for admin
 # 21.06.2024 added switch between fulltext and vector search for rag
+# 22.06.2024 added anthropic as llm
+# 22.06.2024 added web search for rag
 # ---------------------------------------------------
 
 import os
@@ -70,6 +72,8 @@ def main() -> None:
         st.session_state.llmStatus: str = myapi.LLMS[0]
         st.session_state.marktbereich: str = "Alle"
         st.session_state.marktbereichIndex: int = 0
+        st.session_state.rag_db_suche: bool = True
+        st.session_state.rag_web_suche: bool = True
         st.session_state.rag_index: str = "fulltext"
         st.session_state.results: str = ""
         st.session_state.searchFilter: list = st.session_state.feldListe
@@ -89,7 +93,7 @@ def main() -> None:
     st.header("DVV Insight")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("Version 0.2.1 - 22.06.2024")
+        st.write("Version 0.3 - 22.06.2024")
     with col2:
         if st.session_state.userStatus:
             st.write(f"Eingeloggt als: {st.session_state.userName}")
@@ -111,6 +115,14 @@ def main() -> None:
             switch_search_results = st.slider("Search Results", 1, 100, st.session_state.searchResultsLimit)
             if switch_search_results != st.session_state.searchResultsLimit:
                 st.session_state.searchResultsLimit = switch_search_results
+                st.experimental_rerun()
+            switch_rag_db_suche = st.checkbox("DB-Suche", value=st.session_state.rag_db_suche)
+            if switch_rag_db_suche != st.session_state.rag_db_suche:
+                st.session_state.rag_db_suche = switch_rag_db_suche
+                st.experimental_rerun()
+            switch_rag_web_suche = st.checkbox("WEB-Suche", value=st.session_state.rag_web_suche)
+            if switch_rag_web_suche != st.session_state.rag_web_suche:
+                st.session_state.rag_web_suche = switch_rag_web_suche
                 st.experimental_rerun()
             switch_llm = st.radio(label="Switch LLM", options=myapi.LLMS, index=0)
             if switch_llm != st.session_state.llmStatus:
@@ -205,35 +217,52 @@ def main() -> None:
                 question=question,
                 history=[],
                 systemPrompt=st.session_state.systemPrompt,
-                results_str=""
+                results_str="",
+                web_results_str=""
                 )
             st.write(summary)
         # RAG Search -----------------------------------------------------
         elif st.session_state.searchType == "rag":
-            if st.session_state.rag_index == "vector":
-                results = myapi.vector_search(
-                query_string=question, 
-                # filter=st.session_state.searchFilter, 
-                limit=st.session_state.searchResultsLimit
-                )
-            else:
-                results, results_count = myapi.text_search(
-                    search_text=question, 
-                    filter=st.session_state.searchFilter, 
+            # DB Search -------------------------------------------------
+            if st.session_state.rag_db_suche:
+                if st.session_state.rag_index == "vector":
+                    results = myapi.vector_search(
+                    query_string=question, 
+                    # filter=st.session_state.searchFilter, 
                     limit=st.session_state.searchResultsLimit
                     )
-            with st.expander("DB Suchergebnisse"):
-                results_str = ""
-                for result in results:
-                    st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
-                    results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
+                else:
+                    results, results_count = myapi.text_search(
+                        search_text=question, 
+                        filter=st.session_state.searchFilter, 
+                        limit=st.session_state.searchResultsLimit
+                        )
+                with st.expander("DVV-Archiv Suchergebnisse"):
+                    db_results_str = ""
+                    for result in results:
+                        st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                        db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
+            else:
+                db_results_str = ""
+            # Web Search ------------------------------------------------
+            if st.session_state.rag_web_suche:
+                results = myapi.web_search(query=question, limit=10)
+                with st.expander("WEB Suchergebnisse"):
+                    web_results_str = ""
+                    for result in results:
+                        st.write(f"{result['title']} [{result['url']}]")
+                        web_results_str += f"Titel: {result['title']}\nURL: {result['url']}\n\n"
+            else:
+                web_results_str = ""
+            # LLM Search ------------------------------------------------
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,
                 temperature=0.2,
                 question=question,
                 history=[],
                 systemPrompt=st.session_state.systemPrompt,
-                results_str=results_str
+                db_results_str=db_results_str,
+                web_results_str=web_results_str
                 )
             st.write(summary)
         st.session_state.searchStatus = False

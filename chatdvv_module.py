@@ -10,6 +10,7 @@
 # 21.06.2024 added update_systemprompt and get_systemprompt
 # 21.06.2024 added more LLMs
 # 22.06.2024 added anthropic
+# 22.06.2024 added web search with duckduckgo
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -23,6 +24,8 @@ import openai
 import anthropic
 from groq import Groq
 import ollama
+
+from ddg import Duckduckgo
 
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -126,12 +129,14 @@ def create_embeddings(text: str) -> list:
 
 
 def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: list = [],
-            systemPrompt: str = "", results_str: str = "") -> str:
+            systemPrompt: str = "", db_results_str: str = "", web_results_str: str = "") -> str:
     # define prompt
     input_messages = [
                 {"role": "system", "content": systemPrompt},
                 {"role": "user", "content": question},
-                {"role": "assistant", "content": 'Hier sind einige relevante Informationen:\n'  + results_str},
+                {"role": "assistant", "content": 'Hier sind einige relevante Informationen aus dem DVV Artikel-Archiv:\n'  + db_results_str},
+                {"role": "user", "content": "Gibt es zusätzliche Informationen aus dem Internet?"},
+                {"role": "assistant", "content": 'Hier sind einige relevante Informationen aus einer Internet-Recherche:\n'  + web_results_str},
                 {"role": "user", "content": 'Basierend auf den oben genannten Informationen, ' + question}
                 ]
     if llm == "openai_gpt-4o":
@@ -261,6 +266,15 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
         {"$project": fields}
         ]
     return collection.aggregate(pipeline)
+
+
+def web_search(query: str = "", limit: int = 10) -> list:
+    ddg = Duckduckgo()
+    results = ddg.search(f"Nachrichten über '{query}'")
+    if results:
+        return results["data"][:limit]
+    else:
+        return []
 
 
 def print_results(cursor: list) -> None:
