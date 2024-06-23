@@ -223,8 +223,12 @@ def main() -> None:
             st.write(summary)
         elif st.session_state.searchType == "web":
             results = myapi.web_search(query=question, limit=10)
-            for result in results:
-                st.write(f"{result['title']} [{result['url']}]")
+            if results:
+                st.write("WEB Suchergebnisse:")
+                for result in results:
+                    st.write(f"{result['title']} [{result['url']}]")
+            else:
+                st.write("WEB-Suche bringt keine Ergebnisse.")
         # RAG Search -----------------------------------------------------
         elif st.session_state.searchType == "rag":
             # DB Search -------------------------------------------------
