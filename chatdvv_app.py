@@ -19,7 +19,7 @@ import streamlit as st
 import chatdvv_module as myapi
 import user_management
 
-SEARCH_TYPES = ("rag", "llm", "vektor", "volltext")
+SEARCH_TYPES = ("rag", "llm", "vektor", "volltext", "web")
 MARKTBEREICHE = ("Alle", "Logistik", "Maritim", "Rail", "ÖPNV")
 PUB_LOG = ("THB", "DVZ", "DVZT", "THBT", "DVZMG", "DVZM", "DVZ-Brief")
 PUB_MAR = ("THB", "THBT", "SHF", "SHIOF", "SPI", "NSH")
@@ -221,6 +221,10 @@ def main() -> None:
                 web_results_str=""
                 )
             st.write(summary)
+        elif st.session_state.searchType == "web":
+            results = myapi.web_search(query=question, limit=10)
+            for result in results:
+                st.write(f"{result['title']} [{result['url']}]")
         # RAG Search -----------------------------------------------------
         elif st.session_state.searchType == "rag":
             # DB Search -------------------------------------------------
