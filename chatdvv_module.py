@@ -11,6 +11,7 @@
 # 21.06.2024 added more LLMs
 # 22.06.2024 added anthropic
 # 22.06.2024 added web search with duckduckgo
+# 23.06.2024 switched web search to duckduckgo_search
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -25,7 +26,7 @@ import anthropic
 from groq import Groq
 import ollama
 
-from ddg import Duckduckgo
+from duckduckgo_search import DDGS
 
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -42,7 +43,6 @@ collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 anthropicClient = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
-ddg_client = Duckduckgo()
 
 # Load pre-trained model and tokenizer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -270,9 +270,9 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
 
 
 def web_search(query: str = "", limit: int = 10) -> list:
-    results = ddg_client.search(f"Nachrichten über '{query}'")
+    results = DDGS().text(f"Nachrichten über '{query}'", max_results=limit)
     if results:
-        return results["data"][:limit]
+        return results
     else:
         return []
 

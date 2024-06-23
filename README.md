@@ -14,3 +14,4 @@
 * 21.06.2024 Store system prompt in MongoDB
 * 22.06.2024 Added Anthropic LLM
 * 22.06.2024 Added web search & on/off for RAG DB and WEB search
+* 23.06.2024 Switched Web Search Library to duckduckdo_search

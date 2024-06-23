@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 22.06.2024
+# Version: 23.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -14,7 +14,6 @@
 # 22.06.2024 added web search for rag
 # ---------------------------------------------------
 
-import os
 import streamlit as st
 import chatdvv_module as myapi
 import user_management
@@ -93,7 +92,7 @@ def main() -> None:
     st.header("DVV Insight")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("Version 0.3 - 22.06.2024")
+        st.write("Version 0.3.1 - 22.06.2024")
     with col2:
         if st.session_state.userStatus:
             st.write(f"Eingeloggt als: {st.session_state.userName}")
@@ -221,13 +220,12 @@ def main() -> None:
                 web_results_str=""
                 )
             st.write(summary)
+        # WEB Search -----------------------------------------------------
         elif st.session_state.searchType == "web":
             results = myapi.web_search(query=question, limit=10)
-            st.write(f"Treffer: {len(results)}")
-            if results != []:
-                st.write("WEB Suchergebnisse:")
+            if results:
                 for result in results:
-                    st.write(f"{result['title']} [{result['url']}]")
+                    st.write(f"{result['title']} [{result['href']}]")
             else:
                 st.write("WEB-Suche bringt keine Ergebnisse.")
         # RAG Search -----------------------------------------------------
@@ -259,10 +257,8 @@ def main() -> None:
                 results = myapi.web_search(query=question, limit=10)
                 with st.expander("WEB Suchergebnisse"):
                     for result in results:
-                        st.write(f"{result['title']} [{result['url']}]")
-                        web_results_str += f"Titel: {result['title']}\nURL: {result['url']}\n\n"
-            else:
-                st.write("WEB-Suche bringt keine Ergebnisse.")
+                        st.write(f"{result['title']} [{result['href']}]")
+                        web_results_str += f"Titel: {result['title']}\nURL: {result['href']}\n\n"
             # LLM Search ------------------------------------------------
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,
