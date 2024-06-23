@@ -181,7 +181,7 @@ def main() -> None:
         
     # Define Search & Search Results -------------------------------------------
     if st.session_state.userStatus and st.session_state.searchStatus:
-        st.warning(f'Suche in: {st.session_state.searchFilter}')
+        st.warning(f'Suche in: {st.session_state.searchFilter} [DB: {st.session_state.rag_db_suche}, WEB: {st.session_state.rag_web_suche}]')
         # Fulltext Search -------------------------------------------------
         if st.session_state.searchType == "volltext":
             results, results_count = myapi.text_search(
