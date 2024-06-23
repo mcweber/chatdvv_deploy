@@ -223,7 +223,8 @@ def main() -> None:
             st.write(summary)
         elif st.session_state.searchType == "web":
             results = myapi.web_search(query=question, limit=10)
-            if results:
+            st.write(f"Treffer: {len(results)}")
+            if results != []:
                 st.write("WEB Suchergebnisse:")
                 for result in results:
                     st.write(f"{result['title']} [{result['url']}]")
@@ -232,6 +233,7 @@ def main() -> None:
         # RAG Search -----------------------------------------------------
         elif st.session_state.searchType == "rag":
             # DB Search -------------------------------------------------
+            db_results_str = ""
             if st.session_state.rag_db_suche:
                 if st.session_state.rag_index == "vector":
                     results = myapi.vector_search(
@@ -246,17 +248,16 @@ def main() -> None:
                         limit=st.session_state.searchResultsLimit
                         )
                 with st.expander("DVV-Archiv Suchergebnisse"):
-                    db_results_str = ""
                     for result in results:
                         st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
                         db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
             else:
-                db_results_str = ""
+                st.write("DVV-Archiv-Suche bringt keine Ergebnisse.")
             # Web Search ------------------------------------------------
+            web_results_str = ""
             if st.session_state.rag_web_suche:
                 results = myapi.web_search(query=question, limit=10)
                 with st.expander("WEB Suchergebnisse"):
-                    web_results_str = ""
                     for result in results:
                         st.write(f"{result['title']} [{result['url']}]")
                         web_results_str += f"Titel: {result['title']}\nURL: {result['url']}\n\n"
