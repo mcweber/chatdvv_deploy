@@ -13,6 +13,7 @@
 # 22.06.2024 added anthropic as llm
 # 22.06.2024 added web search for rag
 # 26.06.2024 added document view (work in progress)
+# 02.07.2024 added score to search results
 # ---------------------------------------------------
 
 import streamlit as st
@@ -200,7 +201,7 @@ def main() -> None:
             counter = 1
             for result in results:
                 # st.write(f"[{result['datum']}] {result['titel']}")
-                st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                st.write(f"[{round(result['score'], 2)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
                 st.write(result['text'][:500] + " ...")
                 docButton = st.button(label=f"DOC #{result['_id']}", key=result['_id'])
                 if docButton:
@@ -217,7 +218,7 @@ def main() -> None:
                 )
             for result in results:
                 # st.write(f"[{result['datum']}] {result['titel']}")
-                st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                st.write(f"[{round(result['score'], 2)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
                 st.write(result['text'])
                 st.divider()
         # LLM Search -----------------------------------------------------
@@ -259,7 +260,7 @@ def main() -> None:
                         )
                 with st.expander("DVV-Archiv Suchergebnisse"):
                     for result in results:
-                        st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                        st.write(f"[{round(result['score'], 2)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
                         db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
             else:
                 st.write("DVV-Archiv-Suche bringt keine Ergebnisse.")
