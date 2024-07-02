@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 22.06.2024
+# Version: 02.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -12,6 +12,8 @@
 # 22.06.2024 added anthropic
 # 22.06.2024 added web search with duckduckgo
 # 23.06.2024 switched web search to duckduckgo_search
+# 26.06.2024 added current date to system prompt
+# 02.07.2024 added scores-sorting in text_search and vector_search
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -132,8 +134,9 @@ def create_embeddings(text: str) -> list:
 def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: list = [],
             systemPrompt: str = "", db_results_str: str = "", web_results_str: str = "") -> str:
     # define prompt
+    datum_context = f" Heute ist der {str(datetime.now().date())}."
     input_messages = [
-                {"role": "system", "content": systemPrompt},
+                {"role": "system", "content": systemPrompt + datum_context},
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": 'Hier sind einige relevante Informationen aus dem DVV Artikel-Archiv:\n'  + db_results_str},
                 {"role": "user", "content": "Gibt es zusätzliche Informationen aus dem Internet?"},
@@ -221,14 +224,16 @@ def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -
         "date": 1,
         "untertitel": 1, 
         "text": 1, 
-        "ki_abstract": 1
+        "ki_abstract": 1,
+        "score": {"$meta": "searchScore"}
         }
     pipeline = [
         {"$search": query},
         {"$match": {"quelle_id": {"$in": filter}}},
         # {"$match": generate_filter(filter, "quelle_id")},
         {"$project": fields},
-        {"$limit": limit}
+        {"$limit": limit},
+        {"$sort": {"score": -1}}
         ]
     cursor = collection.aggregate(pipeline)
     # count = collection.aggregate(pipeline_meta)
@@ -263,7 +268,7 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
         # {"$match": {"quelle_id": {"$in": filter}}},
         # {"$match": generate_filter(filter, "quelle_id")},
         {"$vectorSearch": query},
-        {"$sort": {sort: -1}},
+        {"$sort": {"score": -1}},
         {"$project": fields}
         ]
     return collection.aggregate(pipeline)

@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 23.06.2024
+# Version: 26.06.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -12,6 +12,7 @@
 # 21.06.2024 added switch between fulltext and vector search for rag
 # 22.06.2024 added anthropic as llm
 # 22.06.2024 added web search for rag
+# 26.06.2024 added document view (work in progress)
 # ---------------------------------------------------
 
 import streamlit as st
@@ -58,6 +59,12 @@ def statistiken_dialog() -> None:
     if st.button("Close"):
         st.rerun()
 
+@st.experimental_dialog("Document")
+def document_view() -> None:
+    st.title("Document View")
+    if st.button("Close"):
+        st.rerun()
+
 
 # Main -----------------------------------------------------------------
 
@@ -85,14 +92,13 @@ def main() -> None:
         st.session_state.userName: str = ""
         st.session_state.userRole: str = ""
         st.session_state.userStatus: bool = False
-        
-        
+   
     if st.session_state.userStatus == False:
         login_user_dialog()
     st.header("DVV Insight")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("Version 0.3.1 - 22.06.2024")
+        st.write("Version: 02.07.2024 Status: POC")
     with col2:
         if st.session_state.userStatus:
             st.write(f"Eingeloggt als: {st.session_state.userName}")
@@ -177,10 +183,13 @@ def main() -> None:
             button_caption = "Suchen"
         if st.form_submit_button(button_caption) and question != "":
             st.session_state.searchStatus = True
-        
+
+    # if st.button("DOCUMENT"):
+    #     document_view()
+
     # Define Search & Search Results -------------------------------------------
     if st.session_state.userStatus and st.session_state.searchStatus:
-        st.warning(f'Suche in: {st.session_state.searchFilter} [DB: {st.session_state.rag_db_suche}, WEB: {st.session_state.rag_web_suche}]')
+        # st.warning(f'Suche in: {st.session_state.searchFilter} [DB: {st.session_state.rag_db_suche}, WEB: {st.session_state.rag_web_suche}]')
         # Fulltext Search -------------------------------------------------
         if st.session_state.searchType == "volltext":
             results, results_count = myapi.text_search(
@@ -193,6 +202,9 @@ def main() -> None:
                 # st.write(f"[{result['datum']}] {result['titel']}")
                 st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
                 st.write(result['text'][:500] + " ...")
+                docButton = st.button(label=f"DOC #{result['_id']}", key=result['_id'])
+                if docButton:
+                    document_view()
                 st.divider()
                 counter += 1
                 if counter > st.session_state.searchResultsLimit:
@@ -258,7 +270,7 @@ def main() -> None:
                 with st.expander("WEB Suchergebnisse"):
                     for result in results:
                         st.write(f"{result['title']} [{result['href']}]")
-                        web_results_str += f"Titel: {result['title']}\nURL: {result['href']}\n\n"
+                        web_results_str += f"Titel: {result['title']}\nURL: {result['href']}\nBODY: {result['BODY']}\n\n"
             # LLM Search ------------------------------------------------
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,
