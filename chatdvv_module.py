@@ -134,7 +134,7 @@ def create_embeddings(text: str) -> list:
 def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: list = [],
             systemPrompt: str = "", db_results_str: str = "", web_results_str: str = "") -> str:
     # define prompt
-    datum_context = f" Heute ist der {str(datetime.now().date())}."
+    datum_context = f" Heute ist der {datetime.now().strftime('%d.%m.%Y')}."
     input_messages = [
                 {"role": "system", "content": systemPrompt + datum_context},
                 {"role": "user", "content": question},
