@@ -85,7 +85,7 @@ def main() -> None:
         st.session_state.results: str = ""
         st.session_state.searchFilter: list = st.session_state.feldListe
         st.session_state.searchPref: str = "Artikel"
-        st.session_state.searchResultsLimit:int  = 50
+        st.session_state.searchResultsLimit:int  = 10
         st.session_state.searchStatus: bool = False
         st.session_state.searchType: str = "rag"
         st.session_state.searchTypeIndex: int  = SEARCH_TYPES.index(st.session_state.searchType)
