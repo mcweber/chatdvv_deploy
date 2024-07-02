@@ -235,7 +235,7 @@ def main() -> None:
             st.write(summary)
         # WEB Search -----------------------------------------------------
         elif st.session_state.searchType == "web":
-            results = myapi.web_search(query=question, limit=10)
+            results = myapi.web_search_ddgs(query=question, limit=10)
             if results:
                 for result in results:
                     st.write(f"{result['title']} [{result['href']}]")
@@ -267,11 +267,11 @@ def main() -> None:
             # Web Search ------------------------------------------------
             web_results_str = ""
             if st.session_state.rag_web_suche:
-                results = myapi.web_search(query=question, limit=10)
+                results = myapi.web_search_ddgs(query=question, limit=10)
                 with st.expander("WEB Suchergebnisse"):
                     for result in results:
                         st.write(f"{result['title']} [{result['href']}]")
-                        web_results_str += f"Titel: {result['title']}\nURL: {result['href']}\nBODY: {result['BODY']}\n\n"
+                        web_results_str += f"Titel: {result['title']}\nURL: {result['href']}\nText: {result['body']}\n\n"
             # LLM Search ------------------------------------------------
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,

@@ -274,13 +274,12 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
     return collection.aggregate(pipeline)
 
 
-def web_search(query: str = "", limit: int = 10) -> list:
+def web_search_ddgs(query: str = "", limit: int = 10) -> list:
     results = DDGS().text(f"Nachrichten über '{query}'", max_results=limit)
     if results:
         return results
     else:
         return []
-
 
 def print_results(cursor: list) -> None:
     if not cursor:
