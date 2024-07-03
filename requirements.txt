@@ -94,7 +94,9 @@ stack-data==0.6.3
 streamlit==1.35.0
 style==1.1.0
 sympy==1.12
+tavily-python==0.3.3
 tenacity==8.2.3
+tiktoken==0.7.0
 tokenizers==0.19.1
 toml==0.10.2
 toolz==0.12.1

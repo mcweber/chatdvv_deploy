@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 02.07.2024
+# Version: 03.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -14,6 +14,7 @@
 # 23.06.2024 switched web search to duckduckgo_search
 # 26.06.2024 added current date to system prompt
 # 02.07.2024 added scores-sorting in text_search and vector_search
+# 03.07.2024 added tavily web search
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -29,12 +30,14 @@ from groq import Groq
 import ollama
 
 from duckduckgo_search import DDGS
+from tavily import TavilyClient
 
 import torch
 from transformers import AutoTokenizer, AutoModel
 
 # Define global variables ----------------------------------
 LLMS = ("openai_gpt-4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama3-70b-8192", "groq_gemma-7b-it")
+TEMPERATURE = 0.2
 
 # Init MongoDB Client
 load_dotenv()
@@ -45,6 +48,7 @@ collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 anthropicClient = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
+tavilyClient = TavilyClient(api_key=os.environ.get('TAVILY_API_KEY_PRIVAT'))
 
 # Load pre-trained model and tokenizer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -92,7 +96,7 @@ def write_summary(text: str) -> str:
             ]
     response = openaiClient.chat.completions.create(
             model="gpt-4o",
-            temperature=0.1,
+            temperature=TEMPERATURE,
             messages = prompt
             )
     return response.choices[0].message.content
@@ -273,7 +277,6 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
         ]
     return collection.aggregate(pipeline)
 
-
 def web_search_ddgs(query: str = "", limit: int = 10) -> list:
     results = DDGS().text(f"Nachrichten über '{query}'", max_results=limit)
     if results:
@@ -281,13 +284,20 @@ def web_search_ddgs(query: str = "", limit: int = 10) -> list:
     else:
         return []
 
+def web_search_tavily(query: str = "", score: float = 0.9, limit: int = 10) -> list:
+    results: list = []
+    result_list = tavilyClient.search(query=query, max_results=limit, include_raw_content=True)
+    for result_item in result_list['results']:
+        if result_item['score'] > score:
+            results.append(result_item)
+    return results
+
 def print_results(cursor: list) -> None:
     if not cursor:
         print("Keine Artikel gefunden.")
     for item in cursor:
         print(f"[{str(item['datum'])[:10]}] {item['titel'][:70]}")
         # print("-"*80)
-
 
 def group_by_field() -> dict:
     pipeline = [
