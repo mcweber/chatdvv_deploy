@@ -14,7 +14,8 @@
 # 23.06.2024 switched web search to duckduckgo_search
 # 26.06.2024 added current date to system prompt
 # 26.06.2024 switched websearch to news-search
-# 06.07.2024 optiziations
+# 06.07.2024 addes scores-sorting in text_search and vector_search
+# 06.07.2024 added tavily web search
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -30,6 +31,7 @@ from groq import Groq
 import ollama
 
 from duckduckgo_search import DDGS
+from tavily import TavilyClient
 
 import torch
 from transformers import AutoTokenizer, AutoModel
@@ -46,6 +48,7 @@ collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 anthropicClient = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
+tavilyClient = TavilyClient(api_key=os.environ['TAVILY_API_KEY_PRIVAT'])
 
 # Load pre-trained model and tokenizer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -209,13 +212,15 @@ def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -
         "date": 1,
         "untertitel": 1, 
         "text": 1, 
-        "ki_abstract": 1
+        "ki_abstract": 1,
+        "score": {"$meta": "searchScore"},
         }
     pipeline = [
         {"$search": query},
         {"$match": {"quelle_id": {"$in": filter}}},
         {"$project": fields},
-        {"$limit": limit}
+        {"$limit": limit},
+        {"$sort": {"score": -1}},
         ]
     cursor = collection.aggregate(pipeline)
     count = 0
@@ -248,14 +253,22 @@ def vector_search(query_string: str = "*", filter : list = [], sort: str = "date
         # {"$match": {"quelle_id": {"$in": filter}}},
         # {"$match": generate_filter(filter, "quelle_id")},
         {"$vectorSearch": query},
-        {"$sort": {sort: -1}},
+        {"$sort": {"score": -1}},
         {"$project": fields}
         ]
     return collection.aggregate(pipeline)
 
-def web_search(query: str = "", limit: int = 10) -> list:
+def web_search_ddgs(query: str = "", limit: int = 10) -> list:
     # results = DDGS().text(f"Nachrichten über '{query}'", max_results=limit)
     results = DDGS().news(query, max_results=limit)
+    return results if results else []
+
+def web_search_tavily(query: str = "", score: float = 0.9, limit: int = 10) -> list:
+    results: list = []
+    results_list = tavilyClient.search(query, max_results=limit, include_raw_content=True)
+    for result in results_list['results']:
+        if result['score'] > score:
+            results.append(result)
     return results if results else []
 
 def print_results(cursor: list) -> None:

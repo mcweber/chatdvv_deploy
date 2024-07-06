@@ -14,6 +14,7 @@
 # 22.06.2024 added web search for rag
 # 30.06.2024 switched websearch to news-search
 # 06.07.2024 added document view
+# 06.07.2024 added tavily web search
 # ---------------------------------------------------
 
 import streamlit as st
@@ -28,6 +29,13 @@ PUB_RAIL =("EI", "SD", "BM", "BAMA")
 PUB_OEPNV = ("RABUS", "NAHV", "NANA", "DNV")
 
 # Functions -------------------------------------------------------------
+
+def format_date(date_str: str) -> str:
+    day = date_str[:2]
+    month = date_str[2:4]
+    year = date_str[4:]
+    return f"{day}.{month}.{year}"
+
 @st.experimental_dialog("Login User")
 def login_user_dialog() -> None:
     with st.form(key="loginForm"):
@@ -56,7 +64,7 @@ def statistiken_dialog() -> None:
 @st.experimental_dialog("Dokumentenansicht")
 def document_view(result: list = "Kein Text übergeben.") -> None:
     st.title(result['titel'])
-    st.write(f"{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}")
+    st.write(f"{result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}\n\n[Score: {result['score']}]")
     st.write(result['text'])
     st.session_state.searchStatus = True
 
@@ -85,7 +93,7 @@ def main() -> None:
         st.session_state.marktbereichIndex: int = 0
         st.session_state.rag_db_suche: bool = True
         st.session_state.rag_web_suche: bool = True
-        st.session_state.rag_index: str = "fulltext"
+        st.session_state.rag_index: str = "vector" # fulltext, vector
         st.session_state.results: str = ""
         st.session_state.searchFilter: list = st.session_state.feldListe
         st.session_state.searchPref: str = "Artikel"
@@ -97,6 +105,7 @@ def main() -> None:
         st.session_state.userName: str = ""
         st.session_state.userRole: str = ""
         st.session_state.userStatus: bool = False
+        st.session_state.webSearch: str = "tavily" # tavily, DDGS
    
     if st.session_state.userStatus == False:
         login_user_dialog()
@@ -141,6 +150,10 @@ def main() -> None:
             switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vector"), index=0)
             if switch_rag_index != st.session_state.rag_index:
                 st.session_state.rag_index = switch_rag_index
+                st.experimental_rerun()
+            switch_webSearch = st.radio(label="Switch Web-Suche", options=("tavily", "DDGS"), index=0)
+            if switch_webSearch != st.session_state.webSearch:
+                st.session_state.webSearch = switch_webSearch
                 st.experimental_rerun()
             switch_SystemPrompt = st.text_area("System-Prompt", st.session_state.systemPrompt)
             if switch_SystemPrompt != st.session_state.systemPrompt:
@@ -220,11 +233,16 @@ def main() -> None:
             st.write(summary)
         # WEB Search -----------------------------------------------------
         elif st.session_state.searchType == "web":
-            results = myapi.web_search(query=question, limit=10)
+            if st.session_state.webSearch == "tavily":
+                results = myapi.web_search_tavily(query=question, score=0.9, limit=10)
+            else:
+                results = myapi.web_search_ddgs(query=question, limit=10)
             if results:
                 for result in results:
-                    st.write(f"{result['date'][:10]} [{result['source']}]")
-                    st.write(f"{result['title']} [{result['url']}]")
+                    if st.sessions_state.webSearch == "tavily":
+                        st.write(f"[{round(result['score'], 3)}] {result['title'][:10]} [{result['url']}]")
+                    else:
+                        st.write(f"{result['title']} [{result['href']}]")
             else:
                 st.write("WEB-Suche bringt keine Ergebnisse.")
         # RAG Search -----------------------------------------------------
@@ -246,23 +264,30 @@ def main() -> None:
                         )
                 with st.expander("DVV-Archiv Suchergebnisse"):
                     for result in results:
-                        col = st.columns([0.9, 0.1])
-                        with col[0]:
-                            st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
-                        with col[1]:
-                            st.button(label="DOC", key=result['_id'], on_click=document_view, args=(result,))
-                        db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
+                        if result['score'] >= 0.75:
+                            col = st.columns([0.9, 0.1])
+                            with col[0]:
+                                st.write(f"[{round(result['score'], 3)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                            with col[1]:
+                                st.button(label="DOC", key=result['_id'], on_click=document_view, args=(result,))
+                            db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
             else:
                 st.write("DVV-Archiv-Suche bringt keine Ergebnisse.")
             # Web Search ------------------------------------------------
             web_results_str = ""
             if st.session_state.rag_web_suche:
-                results = myapi.web_search(query=question, limit=10)
-                with st.expander("WEB Suchergebnisse"):
-                    for result in results:
-                        st.write(f"{result['date']} [{result['source']}]")
-                        st.write(f"{result['title']} [{result['url']}]")
-                        web_results_str += f"Titel: {result['title']}\nDate: {result['date'][:10]}\nSource: {result['source']}\nURL: {result['url']}\nBODY: {result['body']}\n\n"
+                if st.session_state.webSearch == "tavily":
+                    results = myapi.web_search_tavily(query=question, score=0.9, limit=10)
+                    with st.expander("WEB Suchergebnisse"):
+                        for result in results:
+                            st.write(f"[{round(result['score'], 3)}] {result['title']} [{result['url']}]")
+                            web_results_str += f"Titel: {result['title']}\nURL: {result['url']}\nText: {result['raw_content']}\n\n"
+                else:
+                    results = myapi.web_search_ddgs(query=question, limit=10)
+                    with st.expander("WEB Suchergebnisse"):
+                        for result in results:
+                            st.write(f"{result['title']} [{result['href']}]")
+                            web_results_str += f"Titel: {result['title']}\nURL: {result['href']}\nText: {result['body']}\n\n"
             # LLM Search ------------------------------------------------
             summary = myapi.ask_llm(
                 llm=st.session_state.llmStatus,
