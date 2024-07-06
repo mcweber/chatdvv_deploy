@@ -73,7 +73,7 @@ def print_results(results: list) -> None:
     for result in results:
         col = st.columns([0.9, 0.1])
         with col[0]:
-            st.write(f"[{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+            st.write(f"[{round(result['score'], 3)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
         with col[1]:
             st.button(label="DOC", key=result['_id'], on_click=document_view, args=(result,))
         counter += 1
