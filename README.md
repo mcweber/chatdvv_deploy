@@ -14,3 +14,4 @@
 * 22.06.2024 Added web search & on/off for RAG DB and WEB search
 * 23.06.2024 Switched Web Search Library to duckduckdo_search
 * 06.07.2024 Added document view
+* 06.07.2024 Added Tavily web search
