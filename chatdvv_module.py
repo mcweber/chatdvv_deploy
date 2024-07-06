@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 03.07.2024
+# Version: 06.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -13,8 +13,8 @@
 # 22.06.2024 added web search with duckduckgo
 # 23.06.2024 switched web search to duckduckgo_search
 # 26.06.2024 added current date to system prompt
-# 02.07.2024 added scores-sorting in text_search and vector_search
-# 03.07.2024 added tavily web search
+# 26.06.2024 switched websearch to news-search
+# 06.07.2024 optiziations
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -30,14 +30,12 @@ from groq import Groq
 import ollama
 
 from duckduckgo_search import DDGS
-from tavily import TavilyClient
 
 import torch
 from transformers import AutoTokenizer, AutoModel
 
 # Define global variables ----------------------------------
 LLMS = ("openai_gpt-4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama3-70b-8192", "groq_gemma-7b-it")
-TEMPERATURE = 0.2
 
 # Init MongoDB Client
 load_dotenv()
@@ -48,7 +46,6 @@ collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 anthropicClient = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
-tavilyClient = TavilyClient(api_key=os.environ.get('TAVILY_API_KEY_PRIVAT'))
 
 # Load pre-trained model and tokenizer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -96,7 +93,7 @@ def write_summary(text: str) -> str:
             ]
     response = openaiClient.chat.completions.create(
             model="gpt-4o",
-            temperature=TEMPERATURE,
+            temperature=0.1,
             messages = prompt
             )
     return response.choices[0].message.content
@@ -118,14 +115,12 @@ def generate_embeddings(input_field: str, output_field: str,
             collection.update_one({"_id": record['_id']}, {"$set": {output_field: embeddings}})
     print(f"\nGenerated embeddings for {iteration} records.")
 
-
 # def create_embeddings(text: str) -> str:
 #     if text == "":
 #         return "empty"
 #     model = "text-embedding-3-small"
 #     text = text.replace("\n", " ")
 #     return openaiClient.embeddings.create(input = [text], model=model).data[0].embedding
-
 
 def create_embeddings(text: str) -> list:
     inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
@@ -134,11 +129,10 @@ def create_embeddings(text: str) -> list:
     embeddings_list = outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
     return embeddings_list
 
-
 def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: list = [],
             systemPrompt: str = "", db_results_str: str = "", web_results_str: str = "") -> str:
     # define prompt
-    datum_context = f" Heute ist der {datetime.now().strftime('%d.%m.%Y')}."
+    datum_context = f" Heute ist der {str(datetime.now().date())}."
     input_messages = [
                 {"role": "system", "content": systemPrompt + datum_context},
                 {"role": "user", "content": question},
@@ -162,13 +156,6 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
             messages=input_messages[1:] # system prompt is not needed
         )
         output = response.content[0].text
-    # elif llm == "groq_whisper-large-v3":
-    #     response = groqClient.chat.completions.create(
-    #         model="whisper-large-v3",
-    #         # temperature=temperature,
-    #         messages=input_messages
-    #     )
-    #     output = response.choices[0].message.content
     elif llm == "groq_mixtral-8x7b-32768":
         response = groqClient.chat.completions.create(
             model="mixtral-8x7b-32768",
@@ -200,16 +187,10 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
         output = "Error: No valid LLM specified."
     return output
 
-
 def generate_filter(filter: list, field: str) -> dict:
-    if filter:
-        return {field: {"$in": filter}}
-    else:
-        return {}
-    
+    return {field: {"$in": filter}} if filter else {}
 
 def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -> [tuple, int]:
-    # query = {"$search": {"index": "volltext", "text": search_text, "path": {"wildcard": "*"}}}
     query = {
         "index": "volltext_gewichtet",
         "sort": {"date": -1},
@@ -228,24 +209,19 @@ def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -
         "date": 1,
         "untertitel": 1, 
         "text": 1, 
-        "ki_abstract": 1,
-        "score": {"$meta": "searchScore"}
+        "ki_abstract": 1
         }
     pipeline = [
         {"$search": query},
         {"$match": {"quelle_id": {"$in": filter}}},
-        # {"$match": generate_filter(filter, "quelle_id")},
         {"$project": fields},
-        {"$limit": limit},
-        {"$sort": {"score": -1}}
+        {"$limit": limit}
         ]
     cursor = collection.aggregate(pipeline)
-    # count = collection.aggregate(pipeline_meta)
     count = 0
     return cursor, count
 
-
-def vector_search(query_string: str = "", filter : list = [], sort: str = "date", limit: int = 10) -> tuple:
+def vector_search(query_string: str = "*", filter : list = [], sort: str = "date", limit: int = 10) -> tuple:
     embeddings_query = create_embeddings(query_string)
     query = {
             "index": "text_vector_index",
@@ -272,25 +248,15 @@ def vector_search(query_string: str = "", filter : list = [], sort: str = "date"
         # {"$match": {"quelle_id": {"$in": filter}}},
         # {"$match": generate_filter(filter, "quelle_id")},
         {"$vectorSearch": query},
-        {"$sort": {"score": -1}},
+        {"$sort": {sort: -1}},
         {"$project": fields}
         ]
     return collection.aggregate(pipeline)
 
-def web_search_ddgs(query: str = "", limit: int = 10) -> list:
-    results = DDGS().text(f"Nachrichten über '{query}'", max_results=limit)
-    if results:
-        return results
-    else:
-        return []
-
-def web_search_tavily(query: str = "", score: float = 0.9, limit: int = 10) -> list:
-    results: list = []
-    result_list = tavilyClient.search(query=query, max_results=limit, include_raw_content=True)
-    for result_item in result_list['results']:
-        if result_item['score'] > score:
-            results.append(result_item)
-    return results
+def web_search(query: str = "", limit: int = 10) -> list:
+    # results = DDGS().text(f"Nachrichten über '{query}'", max_results=limit)
+    results = DDGS().news(query, max_results=limit)
+    return results if results else []
 
 def print_results(cursor: list) -> None:
     if not cursor:
@@ -321,21 +287,17 @@ def group_by_field() -> dict:
         return_dict[item['_id']] = item['count']
     return return_dict
 
-
 def list_fields() -> dict:
     result = collection.find_one()
     return result.keys()
-
 
 def get_document(id: str) -> dict:
     document = collection.find_one({"id": id})
     return document
 
-
 def get_systemprompt() -> str:
     result = collection_config.find_one({"key": "systemprompt"})
     return str(result.get("content"))
     
-
 def update_systemprompt(text: str = ""):
     result = collection_config.update_one({"key": "systemprompt"}, {"$set": {"content": text}})
