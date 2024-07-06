@@ -1,6 +1,4 @@
 ## TODO
-* Add paged results list, with link to document
-* Add document view
 * Save passwords with hash code
 * Improve RAG-Text-Search with e.g. NLP
 * Continue chat without searching in RAG
@@ -15,3 +13,4 @@
 * 22.06.2024 Added Anthropic LLM
 * 22.06.2024 Added web search & on/off for RAG DB and WEB search
 * 23.06.2024 Switched Web Search Library to duckduckdo_search
+* 06.07.2024 Added document view
