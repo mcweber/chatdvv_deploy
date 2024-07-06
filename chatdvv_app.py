@@ -64,7 +64,7 @@ def statistiken_dialog() -> None:
 @st.experimental_dialog("Dokumentenansicht")
 def document_view(result: list = "Kein Text übergeben.") -> None:
     st.title(result['titel'])
-    st.write(f"{result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}\n\n[Score: {result['score']}]")
+    st.write(f"[{round(result['score'], 3)}] {result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}\n\n[Score: {result['score']}]")
     st.write(result['text'])
     st.session_state.searchStatus = True
 
