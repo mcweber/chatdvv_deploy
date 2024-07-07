@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 06.07.2024
+# Version: 07.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -16,6 +16,7 @@
 # 26.06.2024 switched websearch to news-search
 # 06.07.2024 addes scores-sorting in text_search and vector_search
 # 06.07.2024 added tavily web search
+# 07.07.2024 added write_takeaways, generate_keywords
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -74,13 +75,13 @@ def generate_abstracts(input_field: str, output_field: str, max_iterations: int 
     cursor.close()
 
 
-def write_summary(text: str) -> str:
+def write_summary(text: str, length: int = 500) -> str:
     if text == "":
         return "empty"
-    systemPrompt = """
+    systemPrompt = f"""
                     Du bist ein Redakteur im Bereich Transport und Verkehr.
                     Du bis Experte dafür, Zusammenfassungen von Fachartikeln zu schreiben.
-                    Die maximale Länge der Zusammenfassungen sind 500 Wörter.
+                    Die maximale Länge der Zusammenfassungen sind {length} Wörter.
                     Wichtig ist nicht die Lesbarkeit, sondern die Kürze und Prägnanz der Zusammenfassung:
                     Was sind die wichtigsten Aussagen und Informationen des Textes?
                     """
@@ -101,6 +102,53 @@ def write_summary(text: str) -> str:
             )
     return response.choices[0].message.content
 
+def write_takeaways(text: str, max_takeaways: int = 5) -> str:
+    if text == "":
+        return "empty"
+    systemPrompt = """
+                    Du bist ein Redakteur im Bereich Transport und Verkehr.
+                    Du bis Experte dafür, die wichtigsten Aussagen von Fachartikeln herauszuarbeiten.
+                    """
+    task = f"""
+            Erstelle eine Liste der wichtigsten Aussagen des Textes in deutscher Sprache.
+            Es sollten maximal {max_takeaways} Aussagen sein.
+            Jede Aussage sollte kurz und prägnant in einem eigenen Satz formuliert sein.
+            Die Antwort darf nur aus den eigentlichen Aussagen bestehen.
+            """
+    prompt = [
+            {"role": "system", "content": systemPrompt},
+            {"role": "assistant", "content": f'Originaltext: {text}'},
+            {"role": "user", "content": task}
+            ]
+    response = openaiClient.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.1,
+            messages = prompt
+            )
+    return response.choices[0].message.content
+
+def generate_keywords(text: str, max_keywords: int = 5) -> str:
+    if text == "":
+        return "empty"
+    systemPrompt = """
+                    Du bist ein Redakteur im Bereich Transport und Verkehr.
+                    Du bis Experte dafür, relevante Schlagwörter für die Inhalte von Fachartikeln zu schreiben.
+                    """
+    task = f"""
+            Erstelle maximal {max_keywords} Schlagworte.
+            Die Antwort darf nur aus den eigentlichen Schlagworten bestehen.
+            """
+    prompt = [
+            {"role": "system", "content": systemPrompt},
+            {"role": "assistant", "content": f'Originaltext: {text}'},
+            {"role": "user", "content": task}
+            ]
+    response = openaiClient.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.1,
+            messages = prompt
+            )
+    return response.choices[0].message.content
 
 def generate_embeddings(input_field: str, output_field: str, 
                         max_iterations: int = 10) -> None:

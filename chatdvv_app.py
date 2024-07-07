@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 06.07.2024
+# Version: 07.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -15,6 +15,7 @@
 # 30.06.2024 switched websearch to news-search
 # 06.07.2024 added document view
 # 06.07.2024 added tavily web search
+# 07.07.2024 added document info window
 # ---------------------------------------------------
 
 import streamlit as st
@@ -61,21 +62,35 @@ def statistiken_dialog() -> None:
     st.write(f"Anzahl Artikel ohne Abstract: {myapi.collection.count_documents({'ki_abstract': ''})}")
     st.write(f"Anzahl Artikel ohne Embeddings: {myapi.collection.count_documents({'embeddings': {}})}")
 
-@st.experimental_dialog("Dokumentenansicht")
+@st.experimental_dialog("DokumentenAnsicht")
 def document_view(result: list = "Kein Text übergeben.") -> None:
     st.title(result['titel'])
     st.write(f"[{round(result['score'], 3)}] {result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}\n\n[Score: {result['score']}]")
     st.write(result['text'])
     st.session_state.searchStatus = True
 
+@st.experimental_dialog("DokumentenInfo")
+def document_info(result: list = "Kein Text übergeben.") -> None:
+    st.header(result['titel'])
+    st.write(f"{result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}")
+    st.subheader("Zusammenfassung:")
+    st.write(myapi.write_summary(text=result['text'], length=200))
+    st.subheader("Takeaways:")
+    st.write(myapi.write_takeaways(text=result['text']))
+    st.subheader("Schlagworte:")
+    st.write(myapi.generate_keywords(text=result['text'], max_keywords=5))
+    st.session_state.searchStatus = True
+
 def print_results(results: list) -> None:
     counter = 1
     for result in results:
-        col = st.columns([0.9, 0.1])
+        col = st.columns([0.8, 0.1, 0.1])
         with col[0]:
             st.write(f"[{round(result['score'], 3)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
         with col[1]:
-            st.button(label="DOC", key=result['_id'], on_click=document_view, args=(result,))
+            st.button(label="DOC", key=str(result['_id'])+"DOC", on_click=document_view, args=(result,))
+        with col[2]:
+            st.button(label="INFO", key=str(result['_id'])+"INFO", on_click=document_info, args=(result,))
         counter += 1
         if counter > st.session_state.searchResultsLimit:
             break
@@ -93,7 +108,7 @@ def main() -> None:
         st.session_state.marktbereichIndex: int = 0
         st.session_state.rag_db_suche: bool = True
         st.session_state.rag_web_suche: bool = True
-        st.session_state.rag_index: str = "vector" # fulltext, vector
+        st.session_state.rag_index: str = "vektor" # fulltext, vektor
         st.session_state.results: str = ""
         st.session_state.searchFilter: list = st.session_state.feldListe
         st.session_state.searchPref: str = "Artikel"
@@ -112,7 +127,7 @@ def main() -> None:
     st.header("DVV Insight")
     col = st.columns(2)
     with col[0]:
-        st.write("Version: 06.07.2024 Status: POC")
+        st.write("Version: 07.07.2024 Status: POC")
     with col[1]:
         if st.session_state.userStatus:
             st.write(f"Eingeloggt als: {st.session_state.userName}")
@@ -147,7 +162,7 @@ def main() -> None:
             if switch_llm != st.session_state.llmStatus:
                 st.session_state.llmStatus = switch_llm
                 st.experimental_rerun()
-            switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vector"), index=0)
+            switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vektor"), index=0)
             if switch_rag_index != st.session_state.rag_index:
                 st.session_state.rag_index = switch_rag_index
                 st.experimental_rerun()
@@ -250,7 +265,7 @@ def main() -> None:
             # DB Search -------------------------------------------------
             db_results_str = ""
             if st.session_state.rag_db_suche:
-                if st.session_state.rag_index == "vector":
+                if st.session_state.rag_index == "vektor":
                     results = myapi.vector_search(
                     query_string=question, 
                     # filter=st.session_state.searchFilter, 
