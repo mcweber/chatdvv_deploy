@@ -49,7 +49,7 @@ collection_config = database.config
 openaiClient = openai.OpenAI(api_key=os.environ.get('OPENAI_API_KEY_DVV'))
 anthropicClient = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY_DVV'))
 groqClient = Groq(api_key=os.environ['GROQ_API_KEY_PRIVAT'])
-tavilyClient = TavilyClient(api_key=os.environ['TAVILY_API_KEY_PRIVAT'])
+tavilyClient = TavilyClient(api_key=os.environ['TAVILY_API_KEY_DVV'])
 
 # Load pre-trained model and tokenizer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -58,7 +58,6 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name)
 
 # Define Database functions ----------------------------------
-
 def generate_abstracts(input_field: str, output_field: str, max_iterations: int = 20) -> None:
     cursor = collection.find({output_field: ""}).limit(max_iterations)
     iteration = 0
@@ -74,8 +73,7 @@ def generate_abstracts(input_field: str, output_field: str, max_iterations: int 
         collection.update_one({"_id": record.get('_id')}, {"$set": {output_field: abstract}})
     cursor.close()
 
-
-def write_summary(text: str, length: int = 500) -> str:
+def write_summary(text: str = "", length: int = 500) -> str:
     if text == "":
         return "empty"
     systemPrompt = f"""
@@ -102,7 +100,7 @@ def write_summary(text: str, length: int = 500) -> str:
             )
     return response.choices[0].message.content
 
-def write_takeaways(text: str, max_takeaways: int = 5) -> str:
+def write_takeaways(text: str = "", max_takeaways: int = 5) -> str:
     if text == "":
         return "empty"
     systemPrompt = """
@@ -127,7 +125,7 @@ def write_takeaways(text: str, max_takeaways: int = 5) -> str:
             )
     return response.choices[0].message.content
 
-def generate_keywords(text: str, max_keywords: int = 5) -> str:
+def generate_keywords(text: str = "", max_keywords: int = 5) -> str:
     if text == "":
         return "empty"
     systemPrompt = """
@@ -313,7 +311,7 @@ def web_search_ddgs(query: str = "", limit: int = 10) -> list:
 
 def web_search_tavily(query: str = "", score: float = 0.9, limit: int = 10) -> list:
     results: list = []
-    results_list = tavilyClient.search(query, max_results=limit, include_raw_content=True)
+    results_list = tavilyClient.search(query=query, max_results=limit, include_raw_content=True)
     for result in results_list['results']:
         if result['score'] > score:
             results.append(result)
@@ -324,11 +322,10 @@ def print_results(cursor: list) -> None:
         print("Keine Artikel gefunden.")
     for item in cursor:
         print(f"[{str(item['datum'])[:10]}] {item['titel'][:70]}")
-        # print("-"*80)
 
 def group_by_field() -> dict:
     pipeline = [
-            {
+            {   
             '$group': {
                 '_id': '$quelle_id', 
                 'count': {
