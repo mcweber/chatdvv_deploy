@@ -162,7 +162,7 @@ def main() -> None:
             if switch_llm != st.session_state.llmStatus:
                 st.session_state.llmStatus = switch_llm
                 st.experimental_rerun()
-            switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vektor"), index=0)
+            switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vektor"), index=1)
             if switch_rag_index != st.session_state.rag_index:
                 st.session_state.rag_index = switch_rag_index
                 st.experimental_rerun()
