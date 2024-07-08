@@ -309,13 +309,13 @@ def web_search_ddgs(query: str = "", limit: int = 10) -> list:
     results = DDGS().news(query, max_results=limit)
     return results if results else []
 
-def web_search_tavily(query: str = "", score: float = 0.9, limit: int = 10) -> list:
+def web_search_tavily(query: str = "", score: float = 0.5, limit: int = 10) -> list:
     results: list = []
     results_list = tavilyClient.search(query=query, max_results=limit, include_raw_content=True)
     for result in results_list['results']:
         if result['score'] > score:
             results.append(result)
-    return results if results else []
+    return results
 
 def print_results(cursor: list) -> None:
     if not cursor:

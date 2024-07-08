@@ -249,12 +249,12 @@ def main() -> None:
         # WEB Search -----------------------------------------------------
         elif st.session_state.searchType == "web":
             if st.session_state.webSearch == "tavily":
-                results = myapi.web_search_tavily(query=question, score=0.9, limit=10)
+                results = myapi.web_search_tavily(query=question, score=0.5, limit=10)
             else:
                 results = myapi.web_search_ddgs(query=question, limit=10)
             if results:
                 for result in results:
-                    if st.sessions_state.webSearch == "tavily":
+                    if st.session_state.webSearch == "tavily":
                         st.write(f"[{round(result['score'], 3)}] {result['title'][:10]} [{result['url']}]")
                     else:
                         st.write(f"{result['title']} [{result['href']}]")
@@ -280,11 +280,13 @@ def main() -> None:
                 with st.expander("DVV-Archiv Suchergebnisse"):
                     for result in results:
                         if result['score'] >= 0.75:
-                            col = st.columns([0.9, 0.1])
+                            col = st.columns([0.7, 0.1, 0.2])
                             with col[0]:
                                 st.write(f"[{round(result['score'], 3)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
                             with col[1]:
-                                st.button(label="DOC", key=result['_id'], on_click=document_view, args=(result,))
+                                st.button(label="DOC", key=str(result['_id'])+"DOC", on_click=document_view, args=(result,))
+                            with col[2]:
+                                st.button(label="INFO", key=str(result['_id'])+"INFO", on_click=document_info, args=(result,))
                             db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
             else:
                 st.write("DVV-Archiv-Suche bringt keine Ergebnisse.")
@@ -292,7 +294,7 @@ def main() -> None:
             web_results_str = ""
             if st.session_state.rag_web_suche:
                 if st.session_state.webSearch == "tavily":
-                    results = myapi.web_search_tavily(query=question, score=0.9, limit=10)
+                    results = myapi.web_search_tavily(query=question, score=0.5, limit=10)
                     with st.expander("WEB Suchergebnisse"):
                         for result in results:
                             st.write(f"[{round(result['score'], 3)}] {result['title']} [{result['url']}]")
