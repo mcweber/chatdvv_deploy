@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 07.07.2024
+# Version: 10.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -17,6 +17,7 @@
 # 06.07.2024 addes scores-sorting in text_search and vector_search
 # 06.07.2024 added tavily web search
 # 07.07.2024 added write_takeaways, generate_keywords
+# 08.07.2024 added score threshold in search functions (in progress)
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -135,6 +136,7 @@ def generate_keywords(text: str = "", max_keywords: int = 5) -> str:
     task = f"""
             Erstelle maximal {max_keywords} Schlagworte.
             Die Antwort darf nur aus den eigentlichen Schlagworten bestehen.
+            Das Format ist "Stichwort1, Stichwort2, Stichwort3, ..."
             """
     prompt = [
             {"role": "system", "content": systemPrompt},
@@ -239,7 +241,7 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
 def generate_filter(filter: list, field: str) -> dict:
     return {field: {"$in": filter}} if filter else {}
 
-def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -> [tuple, int]:
+def text_search(search_text : str = "*", score: float = 1.0, filter : list = [], limit : int = 10) -> tuple:
     query = {
         "index": "volltext_gewichtet",
         "sort": {"date": -1},
@@ -264,15 +266,15 @@ def text_search(search_text : str = "*", filter : list = [], limit : int = 10) -
     pipeline = [
         {"$search": query},
         {"$match": {"quelle_id": {"$in": filter}}},
+        # {"$match": {"score": {"$gte": score}}},
         {"$project": fields},
         {"$limit": limit},
-        {"$sort": {"score": -1}},
+        {"$sort": {"date": -1}},
         ]
     cursor = collection.aggregate(pipeline)
-    count = 0
-    return cursor, count
+    return cursor
 
-def vector_search(query_string: str = "*", filter : list = [], sort: str = "date", limit: int = 10) -> tuple:
+def vector_search(query_string: str = "*", score: float = 0.5, filter : list = [], sort: str = "date", limit: int = 10) -> tuple:
     embeddings_query = create_embeddings(query_string)
     query = {
             "index": "text_vector_index",
@@ -280,7 +282,6 @@ def vector_search(query_string: str = "*", filter : list = [], sort: str = "date
             "queryVector": embeddings_query,
             "numCandidates": int(limit * 10),
             "limit": limit,
-            # "filter": {"quelle_id": "THB"}
             }
     fields = {
             "_id": 1,
@@ -296,11 +297,10 @@ def vector_search(query_string: str = "*", filter : list = [], sort: str = "date
             "score": {"$meta": "vectorSearchScore"}
             }
     pipeline = [
-        # {"$match": {"quelle_id": {"$in": filter}}},
-        # {"$match": generate_filter(filter, "quelle_id")},
         {"$vectorSearch": query},
-        {"$sort": {"score": -1}},
-        {"$project": fields}
+        {"$sort": {"date": -1}},
+        # {"$match": {"score": {"$gte": score}}},
+        {"$project": fields},
         ]
     return collection.aggregate(pipeline)
 

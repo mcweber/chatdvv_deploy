@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 07.07.2024
+# Version: 10.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -16,6 +16,8 @@
 # 06.07.2024 added document view
 # 06.07.2024 added tavily web search
 # 07.07.2024 added document info window
+# 08.07.2024 added score in search results
+# 10.07.2024 switched input to st.caption, moved product selection to bottom of sidebar
 # ---------------------------------------------------
 
 import streamlit as st
@@ -58,9 +60,12 @@ def login_user_dialog() -> None:
 
 @st.experimental_dialog("Statistiken")
 def statistiken_dialog() -> None:
-    st.write(f"Anzahl Artikel: {myapi.collection.count_documents({})}")
-    st.write(f"Anzahl Artikel ohne Abstract: {myapi.collection.count_documents({'ki_abstract': ''})}")
-    st.write(f"Anzahl Artikel ohne Embeddings: {myapi.collection.count_documents({'embeddings': {}})}")
+    num_documents = myapi.collection.count_documents({})
+    num_abstracts = myapi.collection.count_documents({'ki_abstract': {'$ne': ''}})
+    num_embeddings = myapi.collection.count_documents({'embeddings': {'$ne': {}}})
+    st.write(f"Anzahl Artikel: {num_documents:,}".replace(",", "."))
+    st.write(f"Anzahl Artikel mit Abstracts: {num_abstracts:,}".replace(",", "."))
+    st.write(f"Anzahl Artikel ohne Embeddings: {num_documents - num_embeddings:,}".replace(",", "."))
 
 @st.experimental_dialog("DokumentenAnsicht")
 def document_view(result: list = "Kein Text übergeben.") -> None:
@@ -74,7 +79,7 @@ def document_info(result: list = "Kein Text übergeben.") -> None:
     st.header(result['titel'])
     st.write(f"{result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}")
     st.subheader("Zusammenfassung:")
-    st.write(myapi.write_summary(text=result['text'], length=200))
+    st.write(myapi.write_summary(text=result['text'], length=100))
     st.subheader("Takeaways:")
     st.write(myapi.write_takeaways(text=result['text']))
     st.subheader("Schlagworte:")
@@ -127,25 +132,19 @@ def main() -> None:
     st.header("DVV Insight")
     col = st.columns(2)
     with col[0]:
-        st.write("Version: 07.07.2024 Status: POC")
+        st.caption("Version: 10.07.2024 Status: POC")
     with col[1]:
         if st.session_state.userStatus:
-            st.write(f"Eingeloggt als: {st.session_state.userName}")
+            st.caption(f"Eingeloggt als: {st.session_state.userName}")
         else:
-            st.write("Nicht eingeloggt.")
+            st.caption("Nicht eingeloggt.")
 
     # Define Sidebar ---------------------------------------------------
     if st.session_state.userRole == "admin":
         with st.sidebar:
-            switch_searchFilter = st.multiselect(label="Choose Publications", options=st.session_state.feldListe, default=st.session_state.searchFilter)
-            if switch_searchFilter != st.session_state.searchFilter:
-                st.session_state.searchFilter = switch_searchFilter
-                st.experimental_rerun()
-            if st.button("Reset Filter"):
-                st.session_state.searchFilter = st.session_state.feldListe
-                st.session_state.marktbereich = "Alle"
-                st.session_state.marktbereichIndex = 0
-                st.experimental_rerun()
+            if st.button("Statistiken"):
+                statistiken_dialog()
+            st.divider()
             switch_search_results = st.slider("Search Results", 1, 100, st.session_state.searchResultsLimit)
             if switch_search_results != st.session_state.searchResultsLimit:
                 st.session_state.searchResultsLimit = switch_search_results
@@ -170,13 +169,23 @@ def main() -> None:
             if switch_webSearch != st.session_state.webSearch:
                 st.session_state.webSearch = switch_webSearch
                 st.experimental_rerun()
-            switch_SystemPrompt = st.text_area("System-Prompt", st.session_state.systemPrompt)
+            st.divider()
+            switch_SystemPrompt = st.text_area("System-Prompt", st.session_state.systemPrompt, height=500)
             if switch_SystemPrompt != st.session_state.systemPrompt:
                 st.session_state.systemPrompt = switch_SystemPrompt
                 myapi.update_systemprompt(switch_SystemPrompt)
                 st.experimental_rerun()
-            if st.button("Statistiken"):
-                statistiken_dialog()
+            st.divider()
+            switch_searchFilter = st.multiselect(label="Choose Publications", options=st.session_state.feldListe, default=st.session_state.searchFilter)
+            if switch_searchFilter != st.session_state.searchFilter:
+                st.session_state.searchFilter = switch_searchFilter
+                st.experimental_rerun()
+            if st.button("Reset Filter"):
+                st.session_state.searchFilter = st.session_state.feldListe
+                st.session_state.marktbereich = "Alle"
+                st.session_state.marktbereichIndex = 0
+                st.experimental_rerun()
+            st.divider()
             if st.button("Logout"):
                 st.session_state.userStatus = False
                 st.session_state.searchStatus = False
@@ -209,7 +218,7 @@ def main() -> None:
 
     # Define Search Form ----------------------------------------------
     with st.form(key="searchForm"):
-        question = st.text_input(f"{st.session_state.searchType} [{st.session_state.rag_index}]")
+        question = st.text_area(f"{st.session_state.searchType} [{st.session_state.rag_index}]")
         if st.session_state.searchType in ["rag", "llm"]:
             button_caption = "Fragen"
         else:
@@ -221,8 +230,9 @@ def main() -> None:
     if st.session_state.userStatus and st.session_state.searchStatus:
         # Fulltext Search -------------------------------------------------
         if st.session_state.searchType == "volltext":
-            results, results_count = myapi.text_search(
-                search_text=question, 
+            results = myapi.text_search(
+                search_text=question,
+                score=5.0,
                 filter=st.session_state.searchFilter, 
                 limit=st.session_state.searchResultsLimit
                 )
@@ -230,7 +240,8 @@ def main() -> None:
         # Vector Search --------------------------------------------------        
         elif st.session_state.searchType == "vektor":
             results = myapi.vector_search(
-                query_string=question, 
+                query_string=question,
+                score=0.5,
                 limit=st.session_state.searchResultsLimit
                 )
             print_results(results)
@@ -267,27 +278,28 @@ def main() -> None:
             if st.session_state.rag_db_suche:
                 if st.session_state.rag_index == "vektor":
                     results = myapi.vector_search(
-                    query_string=question, 
+                    query_string=question,
+                    score=0.5,
                     # filter=st.session_state.searchFilter, 
                     limit=st.session_state.searchResultsLimit
                     )
                 else:
-                    results, results_count = myapi.text_search(
+                    results = myapi.text_search(
                         search_text=question, 
+                        score=5.0,
                         filter=st.session_state.searchFilter, 
                         limit=st.session_state.searchResultsLimit
                         )
                 with st.expander("DVV-Archiv Suchergebnisse"):
                     for result in results:
-                        if result['score'] >= 0.75:
-                            col = st.columns([0.7, 0.1, 0.2])
-                            with col[0]:
-                                st.write(f"[{round(result['score'], 3)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
-                            with col[1]:
-                                st.button(label="DOC", key=str(result['_id'])+"DOC", on_click=document_view, args=(result,))
-                            with col[2]:
-                                st.button(label="INFO", key=str(result['_id'])+"INFO", on_click=document_info, args=(result,))
-                            db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
+                        col = st.columns([0.7, 0.1, 0.2])
+                        with col[0]:
+                            st.write(f"[{round(result['score'], 3)}][{result['quelle_id']}, {result['nummer']}/{result['jahrgang']}] {result['titel']}")
+                        with col[1]:
+                            st.button(label="DOC", key=str(result['_id'])+"DOC", on_click=document_view, args=(result,))
+                        with col[2]:
+                            st.button(label="INFO", key=str(result['_id'])+"INFO", on_click=document_info, args=(result,))
+                        db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
             else:
                 st.write("DVV-Archiv-Suche bringt keine Ergebnisse.")
             # Web Search ------------------------------------------------
