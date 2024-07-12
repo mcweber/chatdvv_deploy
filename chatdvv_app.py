@@ -19,6 +19,7 @@
 # 08.07.2024 added score in search results
 # 10.07.2024 switched input to st.caption, moved product selection to bottom of sidebar
 # 12.07.2024 added INDUSTR contents
+# 12.07.2024 added show latest articles
 # ---------------------------------------------------
 
 import streamlit as st
@@ -88,7 +89,7 @@ def document_info(result: list = "Kein Text übergeben.") -> None:
     st.write(myapi.generate_keywords(text=result['text'], max_keywords=5))
     st.session_state.searchStatus = True
 
-def print_results(results: list) -> None:
+def print_results(results: list, max_items: int = 100) -> None:
     counter = 1
     for result in results:
         col = st.columns([0.8, 0.1, 0.1])
@@ -99,8 +100,18 @@ def print_results(results: list) -> None:
         with col[2]:
             st.button(label="INFO", key=str(result['_id'])+"INFO", on_click=document_info, args=(result,))
         counter += 1
-        if counter > st.session_state.searchResultsLimit:
+        if counter > max_items:
             break
+
+def show_latest_articles(max_items: int = 10) -> None:
+    st.write("Neueste Artikel")
+    results = myapi.text_search(
+        search_text="*",
+        score=0.0,
+        filter=st.session_state.searchFilter,
+        limit=max_items
+        )
+    print_results(results)
 
 # Main -----------------------------------------------------------------
 def main() -> None:
@@ -123,6 +134,7 @@ def main() -> None:
         st.session_state.searchStatus: bool = False
         st.session_state.searchType: str = "rag"
         st.session_state.searchTypeIndex: int  = SEARCH_TYPES.index(st.session_state.searchType)
+        st.session_state.showLatest: bool = False
         st.session_state.systemPrompt: str = myapi.get_systemprompt()
         st.session_state.userName: str = ""
         st.session_state.userRole: str = ""
@@ -227,8 +239,18 @@ def main() -> None:
             button_caption = "Fragen"
         else:
             button_caption = "Suchen"
-        if st.form_submit_button(button_caption) and question != "":
-            st.session_state.searchStatus = True
+        col = st.columns([0.7, 0.3])
+        with col[0]:
+            if st.form_submit_button(button_caption) and question != "":
+                st.session_state.searchStatus = True
+        with col[1]:
+            if st.session_state.searchType == "volltext" and st.form_submit_button("Neueste Artikel"):
+                st.session_state.showLatest = True
+
+    # Show Latest Articles ---------------------------------------------
+    if st.session_state.searchType == "volltext" and st.session_state.showLatest:
+        show_latest_articles(max_items=st.session_state.searchResultsLimit)
+        st.session_state.showLatest = False
 
     # Define Search & Search Results -------------------------------------------
     if st.session_state.userStatus and st.session_state.searchStatus:
@@ -240,7 +262,7 @@ def main() -> None:
                 filter=st.session_state.searchFilter, 
                 limit=st.session_state.searchResultsLimit
                 )
-            print_results(results)
+            print_results(results, st.session_state.searchResultsLimit)
         # Vector Search --------------------------------------------------        
         elif st.session_state.searchType == "vektor":
             results = myapi.vector_search(
@@ -248,7 +270,7 @@ def main() -> None:
                 score=0.5,
                 limit=st.session_state.searchResultsLimit
                 )
-            print_results(results)
+            print_results(results, st.session_state.searchResultsLimit)
         # LLM Search -----------------------------------------------------
         elif st.session_state.searchType == "llm":
             summary = myapi.ask_llm(

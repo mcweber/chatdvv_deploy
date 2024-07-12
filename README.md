@@ -13,5 +13,12 @@
 * 22.06.2024 Added Anthropic LLM
 * 22.06.2024 Added web search & on/off for RAG DB and WEB search
 * 23.06.2024 Switched Web Search Library to duckduckdo_search
-* 06.07.2024 Added document view
-* 06.07.2024 Added Tavily web search
+* 29.06.2024 Added current date to system prompt
+* 30.06.2024 switched websearch to news-search
+* 06.07.2024 added document view
+* 06.07.2024 added tavily web search
+* 07.07.2024 added document info window
+* 08.07.2024 added score in search results
+* 10.07.2024 switched input to st.caption, moved product selection to bottom of sidebar
+* 12.07.2024 added INDUSTR contents
+* 12.07.2024 added show latest articles

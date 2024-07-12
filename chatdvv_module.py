@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 10.07.2024
+# Version: 12.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -18,6 +18,7 @@
 # 06.07.2024 added tavily web search
 # 07.07.2024 added write_takeaways, generate_keywords
 # 08.07.2024 added score threshold in search functions (in progress)
+# 12.07.2024 added wildcard option to text_search
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -242,14 +243,21 @@ def generate_filter(filter: list, field: str) -> dict:
     return {field: {"$in": filter}} if filter else {}
 
 def text_search(search_text : str = "*", score: float = 1.0, filter : list = [], limit : int = 10) -> tuple:
-    query = {
-        "index": "volltext_gewichtet",
-        "sort": {"date": -1},
-        "text": {
-            "query": search_text, 
-            "path": {"wildcard": "*"}
+    if search_text == "*":
+        query = {
+            "index": "volltext_gewichtet",
+            "sort": {"date": -1},
+            "exists": {"path": "text"},
             }
-        }
+    else:
+        query = {
+            "index": "volltext_gewichtet",
+            "sort": {"date": -1},
+            "text": {
+                "query": search_text, 
+                "path": {"wildcard": "*"}
+                }
+            }
     fields = {
         "_id": 1,
         "quelle_id": 1,
