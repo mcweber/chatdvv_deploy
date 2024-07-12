@@ -243,6 +243,8 @@ def generate_filter(filter: list, field: str) -> dict:
     return {field: {"$in": filter}} if filter else {}
 
 def text_search(search_text : str = "*", score: float = 1.0, filter : list = [], limit : int = 10) -> tuple:
+    if search_text == "":
+        return []
     if search_text == "*":
         query = {
             "index": "volltext_gewichtet",
