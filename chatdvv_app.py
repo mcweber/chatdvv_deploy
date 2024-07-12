@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 10.07.2024
+# Version: 12.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -18,6 +18,7 @@
 # 07.07.2024 added document info window
 # 08.07.2024 added score in search results
 # 10.07.2024 switched input to st.caption, moved product selection to bottom of sidebar
+# 12.07.2024 added INDUSTR contents
 # ---------------------------------------------------
 
 import streamlit as st
@@ -25,11 +26,12 @@ import chatdvv_module as myapi
 import user_management
 
 SEARCH_TYPES = ("rag", "llm", "vektor", "volltext", "web")
-MARKTBEREICHE = ("Alle", "Logistik", "Maritim", "Rail", "ÖPNV")
+MARKTBEREICHE = ("Alle", "Logistik", "Maritim", "Rail", "ÖPNV", "Industrie")
 PUB_LOG = ("THB", "DVZ", "DVZT", "THBT", "DVZMG", "DVZM", "DVZ-Brief")
 PUB_MAR = ("THB", "THBT", "SHF", "SHIOF", "SPI", "NSH")
 PUB_RAIL =("EI", "SD", "BM", "BAMA")
 PUB_OEPNV = ("RABUS", "NAHV", "NANA", "DNV")
+PUB_PI = ("pi_AuD", "pi_PuA", "pi_EuE", "pi_E20", "pi_Industry_Forward", "pi_Industrial_Solutions", "pi_Next_Technology", "pi_")
 
 # Functions -------------------------------------------------------------
 
@@ -132,7 +134,7 @@ def main() -> None:
     st.header("DVV Insight")
     col = st.columns(2)
     with col[0]:
-        st.caption("Version: 10.07.2024 Status: POC")
+        st.caption("Version: 12.07.2024 Status: POC")
     with col[1]:
         if st.session_state.userStatus:
             st.caption(f"Eingeloggt als: {st.session_state.userName}")
@@ -210,6 +212,8 @@ def main() -> None:
             st.session_state.searchFilter = PUB_RAIL
         elif switch_marktbereich == "ÖPNV":
             st.session_state.searchFilter = PUB_OEPNV
+        elif switch_marktbereich == "Industrie":
+            st.session_state.searchFilter = PUB_PI
         elif switch_marktbereich == "Alle":
             st.session_state.searchFilter = st.session_state.feldListe
         st.session_state.marktbereich = switch_marktbereich
