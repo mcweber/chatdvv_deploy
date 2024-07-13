@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 12.07.2024
+# Version: 13.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -19,6 +19,7 @@
 # 07.07.2024 added write_takeaways, generate_keywords
 # 08.07.2024 added score threshold in search functions (in progress)
 # 12.07.2024 added wildcard option to text_search
+# 13.07.2024 added industry filter to vector_search
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -37,7 +38,8 @@ from duckduckgo_search import DDGS
 from tavily import TavilyClient
 
 import torch
-from transformers import AutoTokenizer, AutoModel
+# from transformers import AutoTokenizer, AutoModel
+from transformers import BertTokenizer, BertModel
 
 # Define global variables ----------------------------------
 LLMS = ("openai_gpt-4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama3-70b-8192", "groq_gemma-7b-it")
@@ -55,9 +57,13 @@ tavilyClient = TavilyClient(api_key=os.environ['TAVILY_API_KEY_DVV'])
 
 # Load pre-trained model and tokenizer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-model_name = "sentence-transformers/all-MiniLM-L6-v2"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
+model_name = "bert-base-german-cased" # 768 dimensions
+# model_name = "bert-base-multilingual-cased"
+tokenizer = BertTokenizer.from_pretrained(model_name)
+model = BertModel.from_pretrained(model_name)
+# model_name = "sentence-transformers/all-MiniLM-L6-v2"
+# tokenizer = AutoTokenizer.from_pretrained(model_name)
+# model = AutoModel.from_pretrained(model_name)
 
 # Define Database functions ----------------------------------
 def generate_abstracts(input_field: str, output_field: str, max_iterations: int = 20) -> None:
@@ -153,7 +159,7 @@ def generate_keywords(text: str = "", max_keywords: int = 5) -> str:
 
 def generate_embeddings(input_field: str, output_field: str, 
                         max_iterations: int = 10) -> None:
-    cursor = collection.find({output_field: {}})
+    cursor = collection.find({output_field: []})
     iteration = 0
     for record in cursor:
         iteration += 1
@@ -163,23 +169,15 @@ def generate_embeddings(input_field: str, output_field: str,
         if article_text == "":
             article_text = "Fehler: Kein Text vorhanden."
         else:
-            embeddings = create_embeddings(article_text)
+            embeddings = create_embeddings(text=article_text)
             collection.update_one({"_id": record['_id']}, {"$set": {output_field: embeddings}})
     print(f"\nGenerated embeddings for {iteration} records.")
 
-# def create_embeddings(text: str) -> str:
-#     if text == "":
-#         return "empty"
-#     model = "text-embedding-3-small"
-#     text = text.replace("\n", " ")
-#     return openaiClient.embeddings.create(input = [text], model=model).data[0].embedding
-
 def create_embeddings(text: str) -> list:
-    inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
+    encoded_input = tokenizer(text, padding=True, truncation=True, return_tensors="pt")
     with torch.no_grad():
-        outputs = model(**inputs)
-    embeddings_list = outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
-    return embeddings_list
+        model_output = model(**encoded_input)
+    return model_output.last_hidden_state.mean(dim=1).squeeze().tolist()
 
 def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: list = [],
             systemPrompt: str = "", db_results_str: str = "", web_results_str: str = "") -> str:
@@ -285,9 +283,9 @@ def text_search(search_text : str = "*", score: float = 1.0, filter : list = [],
     return cursor
 
 def vector_search(query_string: str = "*", score: float = 0.5, filter : list = [], sort: str = "date", limit: int = 10) -> tuple:
-    embeddings_query = create_embeddings(query_string)
+    embeddings_query = create_embeddings(text=query_string)
     query = {
-            "index": "text_vector_index",
+            "index": "vector_index",
             "path": "text_embeddings",
             "queryVector": embeddings_query,
             "numCandidates": int(limit * 10),
@@ -308,7 +306,8 @@ def vector_search(query_string: str = "*", score: float = 0.5, filter : list = [
             }
     pipeline = [
         {"$vectorSearch": query},
-        {"$sort": {"date": -1}},
+        {"$match": {"quelle_id": {"$in": filter}}},
+        {"$sort": {sort: -1}},
         # {"$match": {"score": {"$gte": score}}},
         {"$project": fields},
         ]

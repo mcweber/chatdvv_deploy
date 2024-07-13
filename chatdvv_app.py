@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 12.07.2024
+# Version: 13.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -20,6 +20,7 @@
 # 10.07.2024 switched input to st.caption, moved product selection to bottom of sidebar
 # 12.07.2024 added INDUSTR contents
 # 12.07.2024 added show latest articles
+# 13.07.2024 added industry filter to vector search
 # ---------------------------------------------------
 
 import streamlit as st
@@ -35,12 +36,6 @@ PUB_OEPNV = ("RABUS", "NAHV", "NANA", "DNV")
 PUB_PI = ("pi_AuD", "pi_PuA", "pi_EuE", "pi_E20", "pi_Industry_Forward", "pi_Industrial_Solutions", "pi_Next_Technology", "pi_")
 
 # Functions -------------------------------------------------------------
-
-def format_date(date_str: str) -> str:
-    day = date_str[:2]
-    month = date_str[2:4]
-    year = date_str[4:]
-    return f"{day}.{month}.{year}"
 
 @st.experimental_dialog("Login User")
 def login_user_dialog() -> None:
@@ -73,14 +68,14 @@ def statistiken_dialog() -> None:
 @st.experimental_dialog("DokumentenAnsicht")
 def document_view(result: list = "Kein Text übergeben.") -> None:
     st.title(result['titel'])
-    st.write(f"[{round(result['score'], 3)}] {result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}\n\n[Score: {result['score']}]")
+    st.write(f"[{round(result['score'], 3)}] {result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {str(result['date'])[:10]}\n\n[Score: {result['score']}]")
     st.write(result['text'])
     st.session_state.searchStatus = True
 
 @st.experimental_dialog("DokumentenInfo")
 def document_info(result: list = "Kein Text übergeben.") -> None:
     st.header(result['titel'])
-    st.write(f"{result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {format_date(result['datum'])}")
+    st.write(f"{result['quelle_id']}, {result['nummer']}/{result['jahrgang']} vom {str(result['date'])[:10]}")
     st.subheader("Zusammenfassung:")
     st.write(myapi.write_summary(text=result['text'], length=100))
     st.subheader("Takeaways:")
@@ -146,7 +141,7 @@ def main() -> None:
     st.header("DVV Insight")
     col = st.columns(2)
     with col[0]:
-        st.caption("Version: 12.07.2024 Status: POC")
+        st.caption("Version: 13.07.2024 Status: POC")
     with col[1]:
         if st.session_state.userStatus:
             st.caption(f"Eingeloggt als: {st.session_state.userName}")
@@ -268,6 +263,7 @@ def main() -> None:
             results = myapi.vector_search(
                 query_string=question,
                 score=0.5,
+                filter=st.session_state.searchFilter,
                 limit=st.session_state.searchResultsLimit
                 )
             print_results(results, st.session_state.searchResultsLimit)
@@ -306,7 +302,7 @@ def main() -> None:
                     results = myapi.vector_search(
                     query_string=question,
                     score=0.5,
-                    # filter=st.session_state.searchFilter, 
+                    filter=st.session_state.searchFilter, 
                     limit=st.session_state.searchResultsLimit
                     )
                 else:
@@ -325,7 +321,7 @@ def main() -> None:
                             st.button(label="DOC", key=str(result['_id'])+"DOC", on_click=document_view, args=(result,))
                         with col[2]:
                             st.button(label="INFO", key=str(result['_id'])+"INFO", on_click=document_info, args=(result,))
-                        db_results_str += f"Datum: {result['datum']}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
+                        db_results_str += f"Datum: {str(result['date'])[:10]}\nTitel: {result['titel']}\nText: {result['text']}\n\n"
             else:
                 st.write("DVV-Archiv-Suche bringt keine Ergebnisse.")
             # Web Search ------------------------------------------------
