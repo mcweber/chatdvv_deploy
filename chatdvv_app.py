@@ -163,56 +163,56 @@ def main() -> None:
             switch_search_results = st.slider("Search Results", 1, 100, st.session_state.searchResultsLimit)
             if switch_search_results != st.session_state.searchResultsLimit:
                 st.session_state.searchResultsLimit = switch_search_results
-                st.experimental_rerun()
+                st.rerun()
             switch_rag_db_suche = st.checkbox("DB-Suche", value=st.session_state.rag_db_suche)
             if switch_rag_db_suche != st.session_state.rag_db_suche:
                 st.session_state.rag_db_suche = switch_rag_db_suche
-                st.experimental_rerun()
+                st.rerun()
             switch_rag_web_suche = st.checkbox("WEB-Suche", value=st.session_state.rag_web_suche)
             if switch_rag_web_suche != st.session_state.rag_web_suche:
                 st.session_state.rag_web_suche = switch_rag_web_suche
-                st.experimental_rerun()
+                st.rerun()
             switch_llm = st.radio(label="Switch LLM", options=myapi.LLMS, index=0)
             if switch_llm != st.session_state.llmStatus:
                 st.session_state.llmStatus = switch_llm
-                st.experimental_rerun()
+                st.rerun()
             switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vektor"), index=1)
             if switch_rag_index != st.session_state.rag_index:
                 st.session_state.rag_index = switch_rag_index
-                st.experimental_rerun()
+                st.rerun()
             switch_webSearch = st.radio(label="Switch Web-Suche", options=("tavily", "DDGS"), index=0)
             if switch_webSearch != st.session_state.webSearch:
                 st.session_state.webSearch = switch_webSearch
-                st.experimental_rerun()
+                st.rerun()
             st.divider()
             switch_SystemPrompt = st.text_area("System-Prompt", st.session_state.systemPrompt, height=500)
             if switch_SystemPrompt != st.session_state.systemPrompt:
                 st.session_state.systemPrompt = switch_SystemPrompt
                 myapi.update_systemprompt(switch_SystemPrompt)
-                st.experimental_rerun()
+                st.rerun()
             st.divider()
             switch_searchFilter = st.multiselect(label="Choose Publications", options=st.session_state.feldListe, default=st.session_state.searchFilter)
             if switch_searchFilter != st.session_state.searchFilter:
                 st.session_state.searchFilter = switch_searchFilter
-                st.experimental_rerun()
+                st.rerun()
             if st.button("Reset Filter"):
                 st.session_state.searchFilter = st.session_state.feldListe
                 st.session_state.marktbereich = "Alle"
                 st.session_state.marktbereichIndex = 0
-                st.experimental_rerun()
+                st.rerun()
             st.divider()
             if st.button("Logout"):
                 st.session_state.userStatus = False
                 st.session_state.searchStatus = False
                 st.session_state.userName = ""
-                st.experimental_rerun()
+                st.rerun()
 
     # Define Search Type ------------------------------------------------
     switch_searchType = st.radio(label="Auswahl Suchtyp", options=SEARCH_TYPES, index=st.session_state.searchTypeIndex, horizontal=True)
     if switch_searchType != st.session_state.searchType:
         st.session_state.searchType = switch_searchType
         st.session_state.searchTypeIndex = SEARCH_TYPES.index(switch_searchType)
-        st.experimental_rerun()
+        st.rerun()
     
     # Define Search Filter ----------------------------------------------
     switch_marktbereich = st.radio(label="Auswahl Marktbereich", options=MARKTBEREICHE, index=st.session_state.marktbereichIndex, horizontal=True)
@@ -231,7 +231,7 @@ def main() -> None:
             st.session_state.searchFilter = st.session_state.feldListe
         st.session_state.marktbereich = switch_marktbereich
         st.session_state.marktbereichIndex = MARKTBEREICHE.index(switch_marktbereich)
-        st.experimental_rerun()
+        st.rerun()
 
     # Define Search Form ----------------------------------------------
     with st.form(key="searchForm"):
@@ -288,7 +288,7 @@ def main() -> None:
         # WEB Search -----------------------------------------------------
         elif st.session_state.searchType == "web":
             if st.session_state.webSearch == "tavily":
-                results = myapi.web_search_tavily(query=question, score=0.5, limit=10)
+                results = myapi.web_search_tavily(query=question, score=0.2, limit=10)
             else:
                 results = myapi.web_search_ddgs(query=question, limit=10)
             if results:

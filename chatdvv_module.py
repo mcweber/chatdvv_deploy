@@ -246,13 +246,13 @@ def text_search(search_text : str = "*", score: float = 1.0, filter : list = [],
     if search_text == "*":
         query = {
             "index": "volltext_gewichtet",
-            "sort": {"date": -1},
+            # "sort": {"date": -1},
             "exists": {"path": "text"},
             }
     else:
         query = {
             "index": "volltext_gewichtet",
-            "sort": {"date": -1},
+            # "sort": {"date": -1},
             "text": {
                 "query": search_text, 
                 "path": {"wildcard": "*"}
@@ -276,8 +276,8 @@ def text_search(search_text : str = "*", score: float = 1.0, filter : list = [],
         {"$match": {"quelle_id": {"$in": filter}}},
         # {"$match": {"score": {"$gte": score}}},
         {"$project": fields},
-        {"$limit": limit},
         {"$sort": {"date": -1}},
+        {"$limit": limit},
         ]
     cursor = collection.aggregate(pipeline)
     return cursor
