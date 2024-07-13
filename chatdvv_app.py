@@ -21,6 +21,7 @@
 # 12.07.2024 added INDUSTR contents
 # 12.07.2024 added show latest articles
 # 13.07.2024 added industry filter to vector search
+# 13.07.2024 added number of documents per publication to statistiken
 # ---------------------------------------------------
 
 import streamlit as st
@@ -34,6 +35,7 @@ PUB_MAR = ("THB", "THBT", "SHF", "SHIOF", "SPI", "NSH")
 PUB_RAIL =("EI", "SD", "BM", "BAMA")
 PUB_OEPNV = ("RABUS", "NAHV", "NANA", "DNV")
 PUB_PI = ("pi_AuD", "pi_PuA", "pi_EuE", "pi_E20", "pi_Industry_Forward", "pi_Industrial_Solutions", "pi_Next_Technology", "pi_")
+MARKTBEREICHE_LISTE = (PUB_LOG, PUB_MAR, PUB_RAIL, PUB_OEPNV, PUB_PI)
 
 # Functions -------------------------------------------------------------
 
@@ -64,6 +66,10 @@ def statistiken_dialog() -> None:
     st.write(f"Anzahl Artikel: {num_documents:,}".replace(",", "."))
     st.write(f"Anzahl Artikel mit Abstracts: {num_abstracts:,}".replace(",", "."))
     st.write(f"Anzahl Artikel ohne Embeddings: {num_documents - num_embeddings:,}".replace(",", "."))
+    st.divider()
+    st.write("Anzahl Artikel pro Marktbereich:")
+    for item in MARKTBEREICHE_LISTE:
+        st.write(f"{item}: {myapi.collection.count_documents({'quelle_id': {'$in': item}}):,}".replace(",", "."))
 
 @st.experimental_dialog("DokumentenAnsicht")
 def document_view(result: list = "Kein Text übergeben.") -> None:
