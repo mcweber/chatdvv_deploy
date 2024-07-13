@@ -28,7 +28,7 @@ import streamlit as st
 import chatdvv_module as myapi
 import user_management
 
-SEARCH_TYPES = ("rag", "llm", "vektor", "volltext", "web")
+SEARCH_TYPES = ("rag", "vektor", "volltext", "web")
 MARKTBEREICHE = ("Alle", "Logistik", "Maritim", "Rail", "ÖPNV", "Industrie")
 PUB_LOG = ("THB", "DVZ", "DVZT", "THBT", "DVZMG", "DVZM", "DVZ-Brief")
 PUB_MAR = ("THB", "THBT", "SHF", "SHIOF", "SPI", "NSH")
@@ -121,7 +121,7 @@ def main() -> None:
     # Initialize Session State -----------------------------------------
     if 'userStatus' not in st.session_state:
         st.session_state.feldListe: list = list(myapi.group_by_field().keys())
-        st.session_state.history: list = []
+        # st.session_state.history: list = []
         st.session_state.llmStatus: str = myapi.LLMS[0]
         st.session_state.marktbereich: str = "Alle"
         st.session_state.marktbereichIndex: int = 0
@@ -130,7 +130,7 @@ def main() -> None:
         st.session_state.rag_index: str = "vektor" # fulltext, vektor
         st.session_state.results: str = ""
         st.session_state.searchFilter: list = st.session_state.feldListe
-        st.session_state.searchPref: str = "Artikel"
+        # st.session_state.searchPref: str = "Artikel"
         st.session_state.searchResultsLimit:int  = 50
         st.session_state.searchStatus: bool = False
         st.session_state.searchType: str = "rag"
@@ -176,7 +176,7 @@ def main() -> None:
             if switch_llm != st.session_state.llmStatus:
                 st.session_state.llmStatus = switch_llm
                 st.experimental_rerun()
-            switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vektor"), index=0)
+            switch_rag_index = st.radio(label="Switch RAG-index", options=("fulltext", "vektor"), index=1)
             if switch_rag_index != st.session_state.rag_index:
                 st.session_state.rag_index = switch_rag_index
                 st.experimental_rerun()
@@ -274,17 +274,17 @@ def main() -> None:
                 )
             print_results(results, st.session_state.searchResultsLimit)
         # LLM Search -----------------------------------------------------
-        elif st.session_state.searchType == "llm":
-            summary = myapi.ask_llm(
-                llm=st.session_state.llmStatus,
-                temperature=0.2,
-                question=question,
-                history=[],
-                systemPrompt=st.session_state.systemPrompt,
-                results_str="",
-                web_results_str=""
-                )
-            st.write(summary)
+        # elif st.session_state.searchType == "llm":
+        #     summary = myapi.ask_llm(
+        #         llm=st.session_state.llmStatus,
+        #         temperature=0.2,
+        #         question=question,
+        #         history=[],
+        #         systemPrompt=st.session_state.systemPrompt,
+        #         results_str="",
+        #         web_results_str=""
+        #         )
+        #     st.write(summary)
         # WEB Search -----------------------------------------------------
         elif st.session_state.searchType == "web":
             if st.session_state.webSearch == "tavily":
