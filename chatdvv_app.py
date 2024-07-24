@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 13.07.2024
+# Version: 24.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 05.06.2024 added searchFilter in st.session_state and sidebar
@@ -22,6 +22,7 @@
 # 12.07.2024 added show latest articles
 # 13.07.2024 added industry filter to vector search
 # 13.07.2024 added number of documents per publication to statistiken
+# 24.07.2024 added LLAMA 3.1, GPT 4o mini
 # ---------------------------------------------------
 
 import streamlit as st
@@ -147,7 +148,7 @@ def main() -> None:
     st.header("DVV Insight")
     col = st.columns(2)
     with col[0]:
-        st.caption("Version: 13.07.2024 Status: POC")
+        st.caption("Version: 24.07.2024 Status: POC")
     with col[1]:
         if st.session_state.userStatus:
             st.caption(f"Eingeloggt als: {st.session_state.userName}")
