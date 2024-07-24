@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 13.07.2024
+# Version: 24.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -20,6 +20,7 @@
 # 08.07.2024 added score threshold in search functions (in progress)
 # 12.07.2024 added wildcard option to text_search
 # 13.07.2024 added industry filter to vector_search
+# 24.07.2024 added LLAMA 3.1 70B and GPT-4o-mini
 # ---------------------------------------------------
 
 from datetime import datetime
@@ -42,7 +43,7 @@ import torch
 from transformers import BertTokenizer, BertModel
 
 # Define global variables ----------------------------------
-LLMS = ("openai_gpt-4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama3-70b-8192", "groq_gemma-7b-it")
+LLMS = ("GPT 4o mini", "GPT 4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama-3.1-70b", "groq_gemma-7b-it")
 
 # Init MongoDB Client
 load_dotenv()
@@ -191,9 +192,16 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
                 {"role": "assistant", "content": 'Hier sind einige relevante Informationen aus einer Internet-Recherche:\n'  + web_results_str},
                 {"role": "user", "content": 'Basierend auf den oben genannten Informationen, ' + question}
                 ]
-    if llm == "openai_gpt-4o":
+    if llm == "GPT 4o":
         response = openaiClient.chat.completions.create(
             model="gpt-4o",
+            temperature=temperature,
+            messages = input_messages
+            )
+        output = response.choices[0].message.content
+    elif llm == "GPT 4o mini":
+        response = openaiClient.chat.completions.create(
+            model="gpt-4o-mini",
             temperature=temperature,
             messages = input_messages
             )
@@ -213,9 +221,9 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
             messages=input_messages
         )
         output = response.choices[0].message.content
-    elif llm == "groq_llama3-70b-8192":
+    elif llm == "groq_llama3.1-70b":
         response = groqClient.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.1-70b-versatile",
             temperature=temperature,
             messages=input_messages
         )
