@@ -43,7 +43,8 @@ import torch
 from transformers import BertTokenizer, BertModel
 
 # Define global variables ----------------------------------
-LLMS = ("GPT 4o mini", "GPT 4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama-3.1-70b", "groq_gemma-7b-it")
+# LLMS = ("GPT 4o mini", "GPT 4o", "anthropic", "groq_mixtral-8x7b-32768", "groq_llama-3.1-70b", "groq_gemma-7b-it")
+LLMS = ("GPT 4o mini", "GPT 4o", "groq_llama-3.1-70b")
 
 # Init MongoDB Client
 load_dotenv()
