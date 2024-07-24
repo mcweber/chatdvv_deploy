@@ -221,7 +221,7 @@ def ask_llm(llm: str, temperature: float = 0.2, question: str = "", history: lis
             messages=input_messages
         )
         output = response.choices[0].message.content
-    elif llm == "groq_llama3.1-70b":
+    elif llm == "groq_llama-3.1-70b":
         response = groqClient.chat.completions.create(
             model="llama-3.1-70b-versatile",
             temperature=temperature,
