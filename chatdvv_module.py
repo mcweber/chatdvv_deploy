@@ -1,5 +1,5 @@
 # ---------------------------------------------------
-# Version: 24.07.2024
+# Version: 25.07.2024
 # Author: M. Weber
 # ---------------------------------------------------
 # 07.06.2024 Adapted fulltext search to atlas search
@@ -322,14 +322,9 @@ def vector_search(query_string: str = "*", score: float = 0.5, filter : list = [
         ]
     return collection.aggregate(pipeline)
 
-def web_search_ddgs(query: str = "", limit: int = 10) -> list:
-    # results = DDGS().text(f"Nachrichten über '{query}'", max_results=limit)
-    results = DDGS().news(query, max_results=limit)
-    return results if results else []
-
 def web_search_tavily(query: str = "", score: float = 0.5, limit: int = 10) -> list:
     results: list = []
-    results_list = tavilyClient.search(query=query, max_results=limit, include_raw_content=True)
+    results_list = tavilyClient.search(query=query, max_results=limit, include_raw_content=False)
     for result in results_list['results']:
         if result['score'] > score:
             results.append(result)
